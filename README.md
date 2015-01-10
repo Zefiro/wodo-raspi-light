@@ -1,4 +1,4 @@
 wodo-raspi-light
 ================
 
-Raspi based controll for a LED strip in golang
+Raspi-based control for a TM1829 based LED strip in JavaScript
