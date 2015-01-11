@@ -1,0 +1,192 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>World Domination</title>
+<script src="http://code.jquery.com/jquery-2.1.3.js"></script>
+<script src="http://code.jquery.com/ui/1.11.2/jquery-ui.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+  
+<style>
+#simDiv {
+    height: 25px;
+}
+table.ledstrip {
+    width: 100%;
+    height: 20px;
+    border-collapse:collapse;
+    border: 2px solid #808080;
+}
+td.ledstrip {
+    border: 0px;
+}
+.configGroup {
+    border: 1px solid #202020;
+    padding: 3px;
+}
+.configElement {
+    border: 1px solid #202020;
+    padding: 3px;
+    margin: 2px;
+}
+</style>
+
+<script language="JavaScript"><!--
+
+  var socket = io();
+  var clientId = undefined;
+  
+  socket.on('fxConfigRead', function(msg){
+    $('#configForm').html(msg);
+  });
+  
+  socket.on('fxClientId', function(data){
+      clientId = data
+  })
+
+  
+  var fxConfigUpdaters = []
+  socket.on('fxConfigWrite', function(data){
+    console.log("fxConfigWrite got:")
+	console.log(data)
+    for(var idx = 0; idx < data.length; idx++) {
+		var fxIdx = data[idx].fx
+		var cfg = data[idx].cfg
+		// ignore updates triggered by ourselves
+		if (clientId == data[idx].clientId || clientId === undefined) {
+			console.log("Update triggered by ourselves, ignored")
+			continue;
+		}
+		var updater = fxConfigUpdaters[fxIdx]
+		console.log(updater)
+		if (updater !== undefined) {
+		    updater(cfg)
+		}
+    }
+  });
+
+var color = ['#000000', '#100000', '#200000', '#300000'];
+var colorUpdateEnabled = false;
+var pendingColorUpdate = false;
+
+function createTable() {
+    var table = $('<table class="ledstrip"></table>');
+    var row = $('<tr></tr>');
+    for(i=color.length-1; i>=0; i--){
+        var cell = $('<td style="background-color:'+color[i]+'"></td>');
+        row.append(cell);
+    }
+    table.append(row);
+    $('#sim').html(table);
+    pendingColorUpdate = false;
+}
+
+socket.on('fxColorRead', function(data){
+    color = data.c;
+    createTable();
+});
+
+function refreshColor() {
+    pendingColorUpdate = true;
+    socket.emit('fxColorRead', 0);
+}
+
+function colorUpdateOneshot() {
+    colorUpdateEnabled = false;
+    $('#btn_ColorUpdateToggler').text("Start");
+    $('#sim').fadeIn(300);
+    refreshColor();
+}
+
+function setColorUpdate(newColorUpdateEnabled) {
+    colorUpdateEnabled = newColorUpdateEnabled;
+    if (colorUpdateEnabled) {
+        refreshColor();
+        $('#btn_ColorUpdateToggler').text("Stop");
+        $('#sim').fadeIn(300);
+    } else {
+        $('#btn_ColorUpdateToggler').text("Start");
+        $('#sim').fadeOut(800);
+    }
+}
+
+var selfPageContent = null;
+function checkPageRefresh() {
+    $.ajax({type:"GET", url:window.location.href, success:function(data,textStatus,jqXHR) {
+        if (jqXHR.status == 200) {
+            if (selfPageContent === null || selfPageContent == data) {
+                // not changed - try again later
+                console.log("$Self not changed - checking again later");
+                selfPageContent = data;
+                setTimeout(checkPageRefresh, 5000);
+            } else {
+                // page has changed - reload
+                console.log("$Self changed, reloading");
+                window.location.replace(window.location.href);
+            }
+        } else {
+            // load error - try again later
+            console.log("While checking $Self, got status " + textStatus);
+            setTimeout(checkPageRefresh, 2000);
+            $('title').html = "Connection lost, retrying...";
+        }
+    }, error:function(jqXHR, textStatus, errorThrown) {
+        console.log("$Self not retrieveable - trying again later");
+        // load error - try again later
+        setTimeout(checkPageRefresh, 2000);
+        // make sure a reload is triggered afterwards (to restart the simulation)
+        selfPageContent = "changed";
+    }});
+}
+
+function hex2rgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+	if (result) {
+	   return { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+	}
+    result = /^rgb\((\d+),\s?(\d+),\s?(\d+)\)$/i.exec(hex);
+	if (result) {
+	   return { r: parseInt(result[1], 10), g: parseInt(result[2], 10), b: parseInt(result[3], 10) }
+	}
+	console.log("hex2rgb: unable to parse: " + hex)
+    return { r: 0, g: 42, b: 0 };
+}
+
+$(document).ready(function() {
+    setColorUpdate(false);
+    socket.emit('fxClientId')
+    socket.emit('fxConfigRead', 0);
+    checkPageRefresh();
+    window.setInterval(function() {
+        if (colorUpdateEnabled && !pendingColorUpdate) {
+            refreshColor();
+        }
+    }, 50);
+});
+
+// --></script>
+
+</head>
+<body>
+
+<h1 id="title">World Domination - Regalbrett</h1>
+<a href="/">Reload</a><br>
+
+
+<h2>Live Preview:</h2>
+<div id="simDiv"><div id="sim" style="display: block;">Error connecting to server...</div></div>
+
+<button onclick="setColorUpdate(!colorUpdateEnabled)" id="btn_ColorUpdateToggler">Start</button><br>
+<button onclick="colorUpdateOneshot()" id="btn_ColorUpdateOneshot" style="display: none">Oneshot</button><br>
+
+<hr>
+<h2>Configuration</h2>
+<div><form id="configForm">
+<table><tbody><tr>
+  <td><button id="btn_updateConfig" onclick="updateConfig()">Update</button></td>
+  <td><div id="txt_updateConfig"></div></td>
+</tr></tbody></table>
+</form></div>
+
+<br>
+
+</body></html>
