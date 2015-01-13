@@ -1,6 +1,6 @@
 #!/usr/local/bin/node
 
-var ws281x = require('../lib/ws281x-native')
+var ws281x = require('node-rpi-ws281x-native')
 var app = require('express')()
 var http = require('http').Server(app)
 var io = require('socket.io')(http)
@@ -118,7 +118,7 @@ function rgb2Int(r, b, g) {
 var fxNames = ['combine', 'rainbow', 'singleColor', 'fire', 'transpose']
 
 fxList[0] = require('./fx/freeze')(NUM_LEDS,'freeze')
-fxList[1] = require('./fx/' + fxNames[2])(NUM_LEDS,fxNames[2])
+fxList[1] = require('./fx/' + fxNames[1])(NUM_LEDS,fxNames[1])
 
 //fxList[0] = require('./fx/shippo')(NUM_LEDS)
 
