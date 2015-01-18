@@ -36,6 +36,8 @@ td.ledstrip {
   var clientId = undefined;
   
   socket.on('fxConfigRead', function(msg){
+    console.log("fxConfigRead got this piece of HTML to set:")
+	console.log(msg)
     $('#configForm').html(msg);
   });
   

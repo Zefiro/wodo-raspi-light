@@ -170,12 +170,11 @@ function renderColorsRecursive(idx) {
 function renderColors() {
     tempColors = []
     renderColorsRecursive(0)
-    return tempColors[0]
+    return util.mergeColors(NUM_LEDS, tempColors[0])
 }
 
 var timerId = setInterval(function () {
     logD("Timer: render all colors")
-//    fxList[0].transparency = (fxList[0].transparency + 10) % 100
     colors = renderColors()
     // set the colors
 	if (colors === undefined || colors.length != NUM_LEDS) {

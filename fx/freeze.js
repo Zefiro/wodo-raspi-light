@@ -22,7 +22,7 @@ module.exports = function(_numLeds, name) { return {
 		html += "if(fx"+idx+"_toggleFreezeValue){console.log('Freeze on');$('#fx"+idx+"_btn_Freezer').text('Unfreeze');}"
 		html += "else{console.log('Freeze off');$('#fx"+idx+"_btn_Freezer').text('Freeze');}"
 		html += "socket.emit('fxConfigWrite', [{fx:"+idx+",id:0,cfg:{frozen: fx"+idx+"_toggleFreezeValue}}]);"
-		html += "};fx"+idx+"_toggleFreeze("+this.frozen+")</script>"
+		html += "};fx"+idx+"_toggleFreeze("+this.frozen+")</script>\n"
         return html
     },
 	
