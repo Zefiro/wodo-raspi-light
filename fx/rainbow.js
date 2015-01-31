@@ -3,10 +3,13 @@ var util = require('./fx_util')
 module.exports = function(_numLeds, name) { return {
 
     // FX configuration
+	_fps: 30,
     numLeds: _numLeds,
 	_offset: 0,
 	/** amount of 1/10th seconds for one full colorwheel cycle */
     _speed: 10,
+	/** length (in LEDs) for a full colorwheel. 0=synchronous, all LEDs have the same color */
+	_cyclelen: _numLeds,
 	
     getInputIndexes: function() {
         return []
@@ -19,6 +22,7 @@ module.exports = function(_numLeds, name) { return {
     getConfigHtml: function(idx) {
 		var metaconfig = { c: [
 			{ name: 'Speed', type: 'int', id: 'speed', desc: 'amount of 1/10th seconds for a full cycle', css:'width:50px;' },
+			{ name: 'Cycle Length', type: 'int', id: 'cyclelen', desc: 'number of LEDs for a full color cycle', css:'width:50px;' },
 			{ name: 'len', type: 'int', id: 'len', desc: 'length', css:'width:50px;' }
 		],
 		name: this.getName(),
@@ -27,7 +31,7 @@ module.exports = function(_numLeds, name) { return {
     },
     
 	getConfigData: function() {
-		return { speed: this._speed, len: this.numLeds }
+		return { speed: this._speed, len: this.numLeds, cyclelen: this._cyclelen }
 	},
 	
 	setConfigData: function(data) {
@@ -35,6 +39,7 @@ module.exports = function(_numLeds, name) { return {
 		console.log(data)
 		this._speed = data.speed
 		this.numLeds = data.len
+		this._cyclelen = data.cyclelen
 	},
 
 	_colowheel: function(pos) {
@@ -47,9 +52,11 @@ module.exports = function(_numLeds, name) { return {
     renderColors: function(inputColors) {
 		colors = []
 		for (var i = 0; i < this.numLeds; i++) {
-			colors[i] = this._colowheel((this._offset + i) % 256);
+			var colIdx = this._offset + (this._cyclelen ? 256 * i / this._cyclelen : 0)
+			colIdx = Math.floor(colIdx) % 256
+			colors[i] = this._colowheel(colIdx)
 		}
-		this._offset = (this._offset + (256 / 30 * 10 / this._speed)) % 256;
+		this._offset = (this._offset + (256 / this._fps * 10 / this._speed)) % 256;
     	return colors
     },
     
