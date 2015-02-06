@@ -7,9 +7,9 @@ module.exports = function(_numLeds, name) { return {
     numLeds: _numLeds,
 	_offset: 0,
 	/** amount of 1/10th seconds for one full colorwheel cycle */
-    _speed: 10,
+    _speed: 6000,
 	/** length (in LEDs) for a full colorwheel. 0=synchronous, all LEDs have the same color */
-	_cyclelen: _numLeds,
+	_cyclelen: 600,
 	
     getInputIndexes: function() {
         return []
@@ -35,10 +35,19 @@ module.exports = function(_numLeds, name) { return {
 	},
 	
 	setConfigData: function(data) {
-		console.log("rainbow.setConfigData:")
-		console.log(data)
 		this._speed = data.speed
 		this.numLeds = data.len
+		this._cyclelen = data.cyclelen
+	},
+
+	saveConfigData: function() {
+		return { speed: this._speed, len: this.numLeds, _offset: this._offset, cyclelen: this._cyclelen }
+	},
+	
+	loadConfigData: function(data) {
+		this._speed = data.speed
+		this.numLeds = data.len
+		this._offset = data._offset
 		this._cyclelen = data.cyclelen
 	},
 

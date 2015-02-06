@@ -45,6 +45,9 @@ td.ledstrip {
       clientId = data
   })
 
+  socket.on('toast', function(msg) {
+    console.log("Got toast: " + msg);
+  })
   
   var fxConfigUpdaters = []
   socket.on('fxConfigWrite', function(data){
@@ -153,6 +156,14 @@ function hex2rgb(hex) {
     return { r: 0, g: 42, b: 0 };
 }
 
+function doCfgSave() {
+    socket.emit('cfgDoSave', 0);
+}
+
+function doCfgLoad() {
+    socket.emit('cfgDoLoad', 0);
+}
+
 $(document).ready(function() {
     setColorUpdate(false);
     socket.emit('fxClientId')
@@ -182,12 +193,10 @@ $(document).ready(function() {
 
 <hr>
 <h2>Configuration</h2>
-<div><form id="configForm">
-<table><tbody><tr>
-  <td><button id="btn_updateConfig" onclick="updateConfig()">Update</button></td>
-  <td><div id="txt_updateConfig"></div></td>
-</tr></tbody></table>
-</form></div>
+<b>Whole Configuration:</b>
+<button onclick='doCfgSave(); return false;' id='btn_CfgSave'>Save</button>&nbsp;&nbsp;&nbsp;<button onclick='doCfgLoad(); return false;' id='btn_CfgLoad'>Load</button><br>
+<hr>
+<div><form id="configForm">Loading config...</form></div>
 
 <br>
 

@@ -85,6 +85,27 @@ module.exports = function(_numLeds) { return {
         return "There is currently no configuration for this effect<br>"
     },
     
+	getConfigData: function() {
+		return { }
+	},
+	
+	setConfigData: function(data) {
+	},
+    
+	loadConfigData: function(data) {
+		this.foo = data.foo
+		this.pixels = data.pixels
+	},
+	
+	saveConfigData: function() {
+	    var cfg = { 
+	        foo: this.foo,
+	        pixels: this.pixels,
+	    }
+		return cfg
+	},
+    
+    
     renderColors: function(inputColors) {
         var colors = []
     	this.foo += 0.1

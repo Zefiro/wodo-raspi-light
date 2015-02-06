@@ -1,9 +1,11 @@
 module.exports = {
 
+    /** Returns a value between a and b, linearly depending on procent, with procent=0 -> a and procent=100 -> b */
     map: function(a, b, procent) {
         return Math.floor((a * (100-procent) + b * procent) / 100)
     },
 
+    /** Returns a color, linearly mapped in RGB space between col1 and col2, with procent 0..100 */
     mapColor: function(col1, col2, procent) {
         var result = {r: 0, g: 0, b: 0}
         result.r = this.map(col1.r, col2.r, procent)
@@ -12,8 +14,11 @@ module.exports = {
         return result
     },
 	
-	mergeColors: function(targetLength, newColors, startIndex, existingColors) {
-        var defaultColor = {r: 0, g: 1, b: 0}
+	/** Returns an array of colors of length targetLength  based on copying newColors onto existingColors starting at index startIndex. Missing colors are filled with black.
+	 *  Usage to ensure a certain length: mergeColors(targetLength, colors)
+	 */
+	mergeColors: function(targetLength, existingColors, newColors, startIndex) {
+        var defaultColor = {r: 0, g: 0, b: 0}
 		if (newColors === undefined) newColors = []
 		if (startIndex === undefined) startIndex = 0
 		if (existingColors === undefined) existingColors = []
@@ -24,6 +29,7 @@ module.exports = {
 		return result
 	},
     
+    /** returns HTML for an input field reading an integer */
     htmlRead_Integer: function(id, value, desc) {
         return "<input id='" + id + "' value='" + value + "'> " + desc
     },
@@ -39,6 +45,7 @@ module.exports = {
 		return html
 	},
 	
+	/** returns the HTML for the configuration of effect fx, as defined by this effect and wrapped in a box */
 	fxgroup: function(idx, fx) {
 		var html = "<b>FX:</b> " + fx.getName() + "<br>\n"
 		html += fx.getConfigHtml(idx)
@@ -46,6 +53,7 @@ module.exports = {
 		return html
 	},
 	
+	/** returns HTML configuration fields based on metadata */
 	generateConfigHtml: function(fxIdx, metaconfig, config) {
 		var prefix = "fx" + fxIdx + "_"
 		var controls_html = []

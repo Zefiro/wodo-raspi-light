@@ -7,7 +7,7 @@ module.exports = function(_numLeds) { return {
 	color: { r: 0, g: 0, b: 0 },
     
     getInputIndexes: function() {
-        return [1]
+        return []
     },
     
     getName: function() {
@@ -77,6 +77,14 @@ function "+prefix+"_singleColor() {\n\
 	setConfigData: function(data) {
 		console.log("singleColor.setConfigData:")
 		console.log(data)
+		this.color = data.color
+	},
+    
+	saveConfigData: function() {
+		return { color: this.color }
+	},
+	
+	loadConfigData: function(data) {
 		this.color = data.color
 	},
     

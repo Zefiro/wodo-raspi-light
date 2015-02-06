@@ -4,11 +4,12 @@ module.exports = function(_numLeds, name) { return {
 
     // FX configuration
     numLeds: _numLeds,
+    _inputIndexes: [1],
 	lastColors: [],
 	frozen: false,
     
     getInputIndexes: function() {
-        return [1]
+        return this._inputIndexes
     },
     
     getName: function() {
@@ -31,16 +32,30 @@ module.exports = function(_numLeds, name) { return {
 	},
 	
 	setConfigData: function(data) {
-		console.log("freeze.setConfigData:")
-		console.log(data)
 		this.frozen = data.frozen
+	},
+    
+	loadConfigData: function(data) {
+		this.frozen = data.frozen
+		this._inputIndexes = data._inputIndexes
+		if (data.lastColors) {
+		    this.lastColors = data.lastColors
+		}
+	},
+	
+	saveConfigData: function() {
+	    var cfg = { frozen: this.frozen, _inputIndexes: this._inputIndexes }
+	    if (this.frozen) {
+	        cfg.lastColors = this.lastColors
+	    }
+		return cfg
 	},
     
     renderColors: function(inputColors) {
         if (!this.frozen) {
 			this.lastColors = inputColors[0]
 		}
-    	return this.lastColors
+    	return util.mergeColors(this.numLeds, this.lastColors)
     },
     
 }}
