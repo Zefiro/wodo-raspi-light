@@ -28,23 +28,6 @@ process.on('SIGINT', function () {
 
 app.use(require('express').static(__dirname + '/public'))
 
-//app.get('/', function(req, res){
-//  res.sendFile(__dirname + '/public/index.html')
-//})
-
-function componentToHex(c) {
-    var hex = c.toString(16);
-    return hex.length == 1 ? "0" + hex : hex;
-}
-
-function rgbToHex(r, g, b) {
-    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-}
-
-function rgb2html(color) {
-    return rgbToHex(color.r, color.g, color.b);
-}
-
 function sendFullConfig() {
 	console.log("Resending config to all clients")
     html = "<h3>Configuration</h3>"
@@ -97,7 +80,7 @@ io.on('connection', function(socket){
   socket.on('fxColorRead', function(msg){
     data = { c: [] }
     for(var idx = 0; idx < colors.length; idx++) {
-        data.c[idx] = rgb2html(colors[idx])
+        data.c[idx] = util.rgb2html(colors[idx])
     }
     socket.emit('fxColorRead', data)
   })
@@ -117,11 +100,6 @@ io.on('connection', function(socket){
 http.listen(80, function(){
   console.log('listening on *:80')
 })
-
-function rgb2Int(r, b, g) {
-  if (g == 255) { g = 254 }
-  return ((r & 0xff) << 16) + ((g & 0xff) << 8) + (b & 0xff)
-}
 
 
 var fxNames = ['combine', 'rainbow', 'singleColor', 'fire', 'transpose']
@@ -227,17 +205,17 @@ var timerId = setInterval(function () {
     colors = renderColors()
     // set the colors
 	if (colors === undefined || colors.length != NUM_LEDS) {
-		console.log("colors is empty! Aborting!")
+		console.log("colors is undefined or of wrong length! Aborting!")
 		process.exit(1)
 	}
     for(var i=0; i<NUM_LEDS; i++) { 
-		pixelData[i] = rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+		pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
 	}
 	ws281x.render(pixelData)
 }, 1000 / 30)
 
-fxList[0] = addEffect('freeze')
-fxList[1] = addEffect(fxNames[1])
-doCfgLoad()
+
 
 console.log('Press <ctrl>+C to exit.')
+
+doCfgLoad()

@@ -2,6 +2,7 @@ module.exports = {
 
     /** Returns a value between a and b, linearly depending on procent, with procent=0 -> a and procent=100 -> b */
     map: function(a, b, procent) {
+        procent = Math.min(100, Math.max(0, procent))
         return Math.floor((a * (100-procent) + b * procent) / 100)
     },
 
@@ -25,10 +26,34 @@ module.exports = {
 		for(var i = existingColors.length; i < targetLength; i++) {
 			existingColors[i] = defaultColor
 		}
-		var result = existingColors.slice(0, startIndex).concat(newColors, existingColors.slice(startIndex + newColors.length)).slice(0, targetLength)
+        var prefix = existingColors.slice(0, startIndex)
+        var postfix = existingColors.slice(startIndex + newColors.length)
+        var result = prefix.concat(newColors, postfix)
+        result = result.slice(0, targetLength)
 		return result
-	},
+    },
     
+    rgb2html: function(col) {
+        return "#" + ((1 << 24) + (col.r << 16) + (col.g << 8) + col.b).toString(16).slice(1);
+    },
+
+    html2rgb: function(html) {
+        var result = /^#?([a-fA-F0-9]{2})([a-fA-F0-9]{2})([a-fA-F0-9]{2})$/i.exec(html);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    },
+
+    /** returns the 32bit int representation of the r,g,b color.
+     * Note: ensures that b != 255 as this triggers a special mode in the ALDI led strip
+     */
+    rgb2Int: function(r, g, b) {
+        if (b == 255) { b = 254 }
+        return ((r & 0xff) << 16) + ((b & 0xff) << 8) + (g & 0xff)
+    },
+
     /** returns HTML for an input field reading an integer */
     htmlRead_Integer: function(id, value, desc) {
         return "<input id='" + id + "' value='" + value + "'> " + desc
