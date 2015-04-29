@@ -59,6 +59,7 @@ module.exports = {
         return "<input id='" + id + "' value='" + value + "'> " + desc
     },
 	
+    // TODO hardcoded dropdown based on effect 1 (assuming effect 0 is 'freeze')
     fxselect: function(fxNames, fxList) {
 		var html = '<div><b>Select effect:</b><select id="addFxSelector">'
 		for(var idx = 0; idx < fxNames.length; idx++) {

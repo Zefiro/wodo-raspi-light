@@ -218,4 +218,6 @@ var timerId = setInterval(function () {
 
 console.log('Press <ctrl>+C to exit.')
 
+fxList[0] = addEffect('freeze')
+fxList[1] = addEffect('singleColor')
 doCfgLoad()
