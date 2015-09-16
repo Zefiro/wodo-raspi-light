@@ -7,7 +7,7 @@ module.exports = function(_numLeds) { return {
 	color: { r: 0, g: 0, b: 0 },
     
     getInputIndexes: function() {
-        return []
+        return [3]
     },
     
     getName: function() {
@@ -22,10 +22,8 @@ module.exports = function(_numLeds) { return {
 		html += "<div id='"+prefix+"_color_red' style='width:300px;background:#FF0000'></div>&nbsp;&nbsp;&nbsp;\n"
         html += "<div id='"+prefix+"_color_green' style='width:300px;background:#00FF00'></div>&nbsp;&nbsp;&nbsp;\n"
         html += "<div id='"+prefix+"_color_blue' style='width:300px;background:#0000FF'></div>&nbsp;&nbsp;&nbsp;\n"
-//        html += "<button onclick='"+prefix+"_singleColor();return false'>Update</button>\n"
 		html += "</div><div  style='float:right' class='"+prefix+"_colBtn'>\n"
-		var predefColors = ['#000000','#FFFFFF','#000080','#008000','#800000','#008080','#808000','#800080','#808080',
-			'#0080FF', '#00FF80', '#FF8000', '#80FF00', '#8000FF', '#FF0080', '#FF8080', '#80FF80', '#8080FF', '#FF80FF', '#FFFF80', '#80FFFF',
+		var predefColors = ['#000000','#FFFFFF',
 			'#0000FF','#00FF00','#FF0000','#00FFFF','#FFFF00','#FF00FF']
 		for(var colIdx = 0; colIdx < predefColors.length; colIdx++) {
 			html += "<span style='background-color:"+predefColors[colIdx]+";' onclick='"+prefix+"_useColor(this)'></span>\n"
@@ -88,7 +86,7 @@ function "+prefix+"_singleColor() {\n\
 		this.color = data.color
 	},
     
-    renderColors: function(inputColors) {
+    renderColors: function(inputColors, variables) {
         var colors = []
 		for(var idx=0; idx < this.numLeds; idx++) {
 			colors[idx] = this.color

@@ -7,15 +7,21 @@ var Q = require('q')
 var http = require('http').Server(app)
 var io = require('socket.io')(http)
 var util = require('./fx/fx_util')
+var dict = require("dict")
+
+const TARGET_FPS = 50
 
 var NUM_LEDS = parseInt(process.argv[2], 10) || 50
 var colors = new Array(NUM_LEDS)
-var pixelData = new Uint32Array(NUM_LEDS)
 var fxList = []
 
+// available effects for the user to select
+var fxNames = ['rainbow', 'singleColor', 'fire', 'dmx']
+
+// global 'variables' dictionary, each module will have their own (published) variables placed into it
+var variables = dict()
 
 logDActivated = false
-
 
 ws281x.init(NUM_LEDS, { "invert": 1, "frequency": 400000 } )
 
@@ -27,6 +33,10 @@ process.on('SIGINT', function () {
 })
 
 app.use(require('express').static(__dirname + '/public'))
+
+http.listen(80, function(){
+  console.log('listening on *:80')
+})
 
 function sendFullConfig() {
 	console.log("Resending config to all clients")
@@ -86,7 +96,7 @@ io.on('connection', function(socket){
   })
 
   socket.on('disconnect', function(){
-    console.log('user disconnected')
+    console.log('user disconnected, clientId=' + clientId)
   })
 
   socket.on('cfgDoSave', function(msg){
@@ -97,18 +107,45 @@ io.on('connection', function(socket){
   })
 })
 
-http.listen(80, function(){
-  console.log('listening on *:80')
-})
+/* Idea for better implementation of cfg send
+cfgio = []
+//new client
+cfgio[clientId] = { 'socket': socket, 'rcv_window': default, 'rcv_Id': 0, 'cfgToSend': {} }
+// dropped client
+cfgio[clientId] = undefined
+// configchange (from browser or elsewhere, if elsewhere clientId < 0)
+ValidateAndSetConfig(cfg[]) && emitConfig(validated_cfg[], clientId)
+  loop 0..latestClientId, which still exist
+    rcv_window > 0 ?
+      rcv_window--
+      rcv_id++
+      socket.emit(cfg + rcd_id)
+    else
+      cfgToSend = mergewith(cfgToSend, cfg) // this merges and if necessary overwrites (based on fx id)
+// cfg ACK (needs to be newly send from browser)
+cfgToSend?
+  rcv_id++
+  socket.emit(cfgToSend)
+  cfgToSend == undefined
+else
+  rcv_window++ & upper bound for safety (log if reached)
+// config structure changed
+sendFullConfig
+  loop 0..latestClientId, which still exist
+    rcv_window = default
+    rcv_id = 0
+    cfgToSend == undefined
 
 
-var fxNames = ['combine', 'rainbow', 'singleColor', 'fire', 'transpose']
+*/  
 
 function addEffect(fxName) {
     console.log("adding effect " + fxName + "(" + NUM_LEDS + ")")
+	effect = require('./fx/' + fxName)(NUM_LEDS)
+	variables.set(fxName, effect.variables)
     return {
         name: fxName,
-        fx: require('./fx/' + fxName)(NUM_LEDS),
+        fx: effect,
     }
 }
 
@@ -190,7 +227,7 @@ function renderColorsRecursive(idx) {
 //        console.log(inputColors)
     }
     logD("renderColorsRecursive: calling fx[" + idx + "] '"+fxList[idx].fx.getName()+"' with inputs: " + inputIdxList)
-    tempColors[idx] = fxList[idx].fx.renderColors(inputColors)
+    tempColors[idx] = fxList[idx].fx.renderColors(inputColors, variables)
 //    console.log(tempColors)
 }
 
@@ -200,7 +237,20 @@ function renderColors() {
     return util.mergeColors(NUM_LEDS, tempColors[0])
 }
 
+
+
+
+
+var pixelData = new Uint32Array(NUM_LEDS)
+var fps_lastDate = new Date()
+var fps_smoothed = 1000 / TARGET_FPS
+
 var timerId = setInterval(function () {
+    fps_currentDate = new Date()
+    timediff = fps_currentDate - fps_lastDate
+    fps_lastDate = fps_currentDate
+    fps_smoothed = (fps_smoothed * 31 + timediff) / 32
+    
     logD("Timer: render all colors")
     colors = renderColors()
     // set the colors
@@ -212,12 +262,14 @@ var timerId = setInterval(function () {
 		pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
 	}
 	ws281x.render(pixelData)
-}, 1000 / 30)
-
+	
+    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
+}, 1000 / TARGET_FPS)
 
 
 console.log('Press <ctrl>+C to exit.')
 
 fxList[0] = addEffect('freeze')
 fxList[1] = addEffect('singleColor')
+//fxList[2] = addEffect('fx_DMX')
 doCfgLoad()
