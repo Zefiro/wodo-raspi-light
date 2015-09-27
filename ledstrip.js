@@ -16,7 +16,7 @@ var colors = new Array(NUM_LEDS)
 var fxList = []
 
 // available effects for the user to select
-var fxNames = ['rainbow', 'singleColor', 'fire', 'dmx']
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'dmx']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -263,13 +263,13 @@ var timerId = setInterval(function () {
 	}
 	ws281x.render(pixelData)
 	
-    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
+//    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
 }, 1000 / TARGET_FPS)
 
 
 console.log('Press <ctrl>+C to exit.')
 
 fxList[0] = addEffect('freeze')
-fxList[1] = addEffect('singleColor')
+fxList[1] = addEffect(fxNames[0])
 //fxList[2] = addEffect('fx_DMX')
-doCfgLoad()
+//doCfgLoad()

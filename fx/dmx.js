@@ -34,7 +34,10 @@ module.exports = function(_numLeds) { return {
     
     renderColors: function(inputColors, variables) {
         var colors = []
-		dmx = variables.get('fx_DMX').get('dmx')
+		mod_dmx = variables.get('fx_DMX')
+		if (!mod_dmx) return inputColors
+		dmx = mod_dmx.get('dmx')
+		
 		color = { r: dmx[0], g: dmx[1], b: dmx[2] }
 		for(var idx=0; idx < this.numLeds; idx++) {
 			colors[idx] = color
