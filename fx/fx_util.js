@@ -23,6 +23,7 @@ module.exports = {
 	
 	/** Returns an array of colors of length targetLength  based on copying newColors onto existingColors starting at index startIndex. Missing colors are filled with black.
 	 *  Usage to ensure a certain length: mergeColors(targetLength, colors)
+	 *  Usage to just return all black: mergeColors(targetLength)
 	 */
 	mergeColors: function(targetLength, existingColors, newColors, startIndex) {
         var defaultColor = {r: 0, g: 0, b: 0}
