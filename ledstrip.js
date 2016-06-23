@@ -16,7 +16,7 @@ var colors = new Array(NUM_LEDS)
 var fxList = []
 
 // available effects for the user to select
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'dmx']
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'dmx', 'shadowolf']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -86,7 +86,12 @@ io.on('connection', function(socket){
 
   socket.on('setFx', function(data) {
     console.log("setFx("+data+")")
-    fxList[1] = addEffect(fxNames[data])
+    if (fxNames[data] === "disco") {
+        fullDisco();
+    } else {
+        fxList[0] = addEffect("freeze")
+        fxList[1] = addEffect(fxNames[data])
+    }
     sendFullConfig()
   })
 
@@ -272,19 +277,26 @@ var timerId = setInterval(function () {
 
 console.log('Press <ctrl>+C to exit.')
 
-stripWall = addEffect('disco')
-stripWall.fx.numLeds = 57
-stripWindow = addEffect('disco')
-stripWindow.fx.numLeds = 41
-stripMerge = addEffect('merge')
-stripMerge.fx.s_indexes = [ 1, 2 ]
-stripMerge.fx.s_length = stripWindow.fx.numLeds
-stripMerge.fx.s_start = stripWall.fx.numLeds
+// scene setting for disco effect
+function fullDisco() {
+    stripWall = addEffect('disco')
+    stripWall.fx.numLeds = 57
+    stripWindow = addEffect('disco')
+    stripWindow.fx.numLeds = 41
+    stripMerge = addEffect('merge')
+    stripMerge.fx.s_indexes = [ 1, 2 ]
+    stripMerge.fx.s_length = stripWindow.fx.numLeds
+    stripMerge.fx.s_start = stripWall.fx.numLeds
 
-fxList[0] = stripMerge
-fxList[1] = stripWall
-fxList[2] = stripWindow
+    fxList[0] = stripMerge
+    fxList[1] = stripWall
+    fxList[2] = stripWindow
+}
 
 //fxList[2] = addEffect('fx_DMX')
+
+
+//fxList[0] = addEffect("freeze")
+//fxList[1] = addEffect('shadowolf')
 
 doCfgLoad()

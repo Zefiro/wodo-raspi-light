@@ -176,6 +176,38 @@ $(document).ready(function() {
     }, 50);
 });
 
+
+var bpmLastTapTime;
+var bpmIsTapping = false;
+var bpmLastDurations = [];
+var bpmLastDurationCount = 0;
+var bpmLastDurationCountMax = 10;
+
+function doTap() {
+    if (bpmIsTapping) {
+		let now = Date.now();
+	    var thisDuration = now - bpmLastTapTime;
+		bpmLastTapTime = now;
+		bpmLastDurations.push(thisDuration);
+		if (bpmLastDurations.length > bpmLastDurationCountMax) {
+			bpmLastDurations.shift();
+		}
+		let bpmAverage = 0;
+		for(let i = 0; i < bpmLastDurations.length; i++) {
+			bpmAverage += bpmLastDurations[i];
+		}
+		bpmAverage /= bpmLastDurations.length;
+		let bpmAverage2 = Math.round(60 * 1000 / bpmAverage);
+		$('#bpm').text("BPM: " + bpmAverage2);
+	} else {
+		$('#btn_Tap').text("Tapping");
+		$('#bpm').text("BPM: ...");
+		bpmIsTapping = true;
+		bpmLastTapTime = Date.now();
+	}
+}
+
+
 // --></script>
 
 </head>
@@ -199,5 +231,10 @@ $(document).ready(function() {
 <div><form id="configForm">Loading config...</form></div>
 
 <br>
+
+
+<button onclick='doTap(); return false;' id='btn_Tap'>Tap</button><br>
+<div id="bpm"></div>
+
 
 </body></html>
