@@ -5,7 +5,7 @@ var app = require('express')()
 var fs = require('fs')
 var Q = require('q')
 var http = require('http').Server(app)
-var io = require('socket.io')(http)
+var io = require('socket.io')(http, { })
 var util = require('./fx/fx_util')
 var dict = require("dict")
 
@@ -16,7 +16,7 @@ var colors = new Array(NUM_LEDS)
 var fxList = []
 
 // available effects for the user to select
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', /* 'dmx' */]
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', /* 'dmx', */ 'shadowolf']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -32,7 +32,10 @@ process.on('SIGINT', function () {
     process.nextTick(function () { process.exit(0) })
 })
 
-app.use(require('express').static(__dirname + '/public'))
+//app.get('/', function(req, res){
+//  res.redirect(302, '/rpi/regalbrett/');
+//});
+app.use('/', require('express').static(__dirname + '/public'))
 
 http.listen(80, function(){
   console.log('listening on *:80')
@@ -86,7 +89,12 @@ io.on('connection', function(socket){
 
   socket.on('setFx', function(data) {
     console.log("setFx("+data+")")
-    fxList[1] = addEffect(fxNames[data])
+    if (fxNames[data] === "disco") {
+        fullDisco();
+    } else {
+        fxList[0] = addEffect("freeze")
+        fxList[1] = addEffect(fxNames[data])
+    }
     sendFullConfig()
   })
 
@@ -244,7 +252,7 @@ function renderColorsRecursive(idx) {
         var inputIdx = inputIdxList[i]
         if (inputIdx == idx) {
             logD("renderColorsRecursive: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-            tempColors[inputIdx] = allBlack(NUM_LEDS)
+            tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
         } else if (tempColors[inputIdx] === undefined) {
             logD("renderColorsRecursive: input #" + i + " is fx #" + inputIdx + " -> not defined yet, recursion")
             renderColorsRecursive(inputIdx)
@@ -295,6 +303,24 @@ var timerId = setInterval(function () {
 
 
 console.log('Press <ctrl>+C to exit.')
+
+
+// scene setting for disco effect
+function fullDisco() {
+    stripWall = addEffect('disco')
+    stripWall.fx.numLeds = 57
+    stripWindow = addEffect('disco')
+    stripWindow.fx.numLeds = 41
+    stripMerge = addEffect('merge')
+    stripMerge.fx.s_indexes = [ 1, 2 ]
+    stripMerge.fx.s_length = stripWindow.fx.numLeds
+    stripMerge.fx.s_start = stripWall.fx.numLeds
+
+    fxList[0] = stripMerge
+    fxList[1] = stripWall
+    fxList[2] = stripWindow
+}
+
 
 fxList[0] = addEffect('freeze').requireIdx([1])
 fxList[1] = addEffect('rainbow')
