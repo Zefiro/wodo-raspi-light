@@ -92,7 +92,8 @@ io.on('connection', function(socket){
     if (fxNames[data] === "disco") {
         fullDisco();
     } else {
-        fxList[0] = addEffect("freeze")
+		fxList = []
+        fxList[0] = addEffect('fx_rfid').requireIdx([1])
         fxList[1] = addEffect(fxNames[data])
     }
     sendFullConfig()
@@ -322,8 +323,7 @@ function fullDisco() {
 }
 
 
-fxList[0] = addEffect('freeze').requireIdx([1])
+fxList[0] = addEffect('fx_rfid').requireIdx([1])
 fxList[1] = addEffect('rainbow')
-fxList[2] = addEffect('fx_rfid')
 
 //doCfgLoad()

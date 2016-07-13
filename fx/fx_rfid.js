@@ -81,6 +81,7 @@ module.exports = function(numLeds, configManager) {
             while (data.length >= length) {
 				if (data[0] !== 2 || data[13] !== 3) {
 	                console.log("fx_rfid: parserForRDM6300: buffer framing error")
+					return
 				}
                 var out = data.slice(1, length-1).toString()
                 data = data.slice(length)
@@ -171,7 +172,7 @@ module.exports = function(numLeds, configManager) {
             parser: this.parserForRDM6300(),
         });
 		serial.on('open', function (data) {
-            console.log('Serial port "' + this._comPortName + '" opened: ' + data)
+            console.log('Serial port "' + this._comPortName + '" opened')
 			this._ready = true
         }.bind(this));
         serial.on('error', function (data) {
@@ -291,7 +292,7 @@ module.exports = function(numLeds, configManager) {
 	},
     
     renderColors: function(inputColors, variables) {
-    	return inputColors
+    	return inputColors[0]
     },
     
 }
