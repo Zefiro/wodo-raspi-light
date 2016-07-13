@@ -16,7 +16,7 @@ var colors = new Array(NUM_LEDS)
 var fxList = []
 
 // available effects for the user to select
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'dmx']
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', /* 'dmx' */]
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -65,10 +65,13 @@ io.on('connection', function(socket){
     sendFullConfig()
   })
   
+  socket.on('zconListRead', function(data) {
+	  configManager.zconListRead(socket, data)
+  })
+  
   socket.on('fxConfigWrite', function(data){
     dataOut = []
     for(var idx = 0; idx < data.length; idx++) {
-        console.log(data[idx])
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
 		var fx = fxList[fxIdx].fx
@@ -78,7 +81,7 @@ io.on('connection', function(socket){
     }
     io.emit('fxConfigWrite', dataOut)
 	
-	console.log("Emited:"); console.log(dataOut)
+	console.log("Sent to clients:"); console.log(dataOut)
   })
 
   socket.on('setFx', function(data) {
@@ -102,6 +105,7 @@ io.on('connection', function(socket){
   socket.on('cfgDoSave', function(msg){
     doCfgSave(socket, msg)
   })
+
   socket.on('cfgDoLoad', function(msg){
     doCfgLoad(socket, msg)
   })
@@ -139,13 +143,36 @@ sendFullConfig
 
 */  
 
+var configManager = {
+	update: function() {
+	sendFullConfig();
+	},
+	updateUsers: function() {
+		configManager.zconListRead(io, {})
+	},
+	variables: variables,
+	fxList: fxList,
+	addEffect: addEffect,
+	toast: function(txt) {
+		if (io) {
+			console.log("Toasting: " + txt)
+			io.emit("toast", txt)
+		}
+	},
+	zconListRead: function() {}
+}
+
 function addEffect(fxName) {
     console.log("adding effect " + fxName + "(" + NUM_LEDS + ")")
-	effect = require('./fx/' + fxName)(NUM_LEDS)
+	effect = require('./fx/' + fxName)(NUM_LEDS, configManager)
 	variables.set(fxName, effect.variables)
     return {
         name: fxName,
         fx: effect,
+		requireIdx: function(idx) {
+            this.fx._inputIndexes = Array.isArray(idx) ? idx : [idx]
+            return this
+        },
     }
 }
 
@@ -269,7 +296,8 @@ var timerId = setInterval(function () {
 
 console.log('Press <ctrl>+C to exit.')
 
-fxList[0] = addEffect('freeze')
-fxList[1] = addEffect(fxNames[0])
-//fxList[2] = addEffect('fx_DMX')
+fxList[0] = addEffect('freeze').requireIdx([1])
+fxList[1] = addEffect('rainbow')
+fxList[2] = addEffect('fx_rfid')
+
 //doCfgLoad()

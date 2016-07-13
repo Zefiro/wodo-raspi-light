@@ -5,7 +5,7 @@ var dict = require("dict")
 const I2C_BUS_NUMBER = 1
 const I2C_ADDRESS = 2
 
-module.exports = function(_numLeds, variables) { 
+module.exports = function() { 
 	self = {
 
     // FX configuration

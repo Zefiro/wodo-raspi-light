@@ -4,7 +4,7 @@ module.exports = function(_numLeds, name) { return {
 
     // FX configuration
     numLeds: _numLeds,
-    _inputIndexes: [1],
+    _inputIndexes: [],
 	lastColors: [],
 	frozen: false,
     

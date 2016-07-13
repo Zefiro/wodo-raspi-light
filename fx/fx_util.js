@@ -51,6 +51,14 @@ module.exports = {
             b: parseInt(result[3], 16)
         } : null;
     },
+	
+    rgb: function(r, g, b) {
+        return {
+            r: r,
+            g: g,
+            b: b
+        }
+    },
 
     /** returns the 32bit int representation of the r,g,b color.
      * Note: ensures that b != 255 as this triggers a special mode in the ALDI led strip
@@ -98,11 +106,40 @@ module.exports = {
 		for(idx = 0; idx < c.length; idx++) {
 			var cfg = c[idx]
 			cfg.css && css.push("#"+prefix+cfg.id+"{" + cfg.css + "}")
-			if (cfg.type === 'int') {
+			if (cfg.type === 'text') { // static text
+				controls_html.push(cfg.desc)
+			} else if (cfg.type === 'string') {
+				controls_html.push("<b>" + cfg.name + ":</b>&nbsp;<input type='text' id='" + prefix + cfg.id + "'> " + cfg.desc)
+				scriptinit.push("\
+	$('#"+prefix+cfg.id+"').val('"+config[cfg.id]+"')\n\
+	$('#"+prefix+cfg.id+"').change("+prefix+"valueChange)\n\
+")
+				scriptupdate.push("\
+			$('#"+prefix+cfg.id+"').val(cfg."+cfg.id+")\n\
+")
+				scriptwrite.push("\
+			var "+cfg.id+" = $('#"+prefix+cfg.id+"').val();\n\
+")
+				scriptconfig.push(cfg.id + ":" + cfg.id)
+			} else if (cfg.type === 'int') {
 				controls_html.push("<b>" + cfg.name + ":</b>&nbsp;<input type='text' id='" + prefix + cfg.id + "'> " + cfg.desc)
 				scriptinit.push("\
 	$('#"+prefix+cfg.id+"').val("+config[cfg.id]+")\n\
 	$('#"+prefix+cfg.id+"').change("+prefix+"valueChange)\n\
+")
+				scriptupdate.push("\
+			$('#"+prefix+cfg.id+"').val(cfg."+cfg.id+")\n\
+")
+				scriptwrite.push("\
+			var "+cfg.id+" = parseInt($('#"+prefix+cfg.id+"').val());\n\
+")
+				scriptconfig.push(cfg.id + ":" + cfg.id)
+			} else if (cfg.type === 'button') {
+				controls_html.push("<button type='button' id='" + prefix + cfg.id + "_btn'>" + cfg.name + "</button><input type='hidden' id='" + prefix + cfg.id + "'> " + cfg.desc)
+				scriptinit.push("\
+	$('#"+prefix+cfg.id+"').val("+config[cfg.id]+")\n\
+	$('#"+prefix+cfg.id+"').change("+prefix+"valueChange)\n\
+	$('#"+prefix+cfg.id+"_btn').click(function(){$('#"+prefix+cfg.id+"').val(1);"+prefix+"valueChange()})\n\
 ")
 				scriptupdate.push("\
 			$('#"+prefix+cfg.id+"').val(cfg."+cfg.id+")\n\

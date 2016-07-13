@@ -25,7 +25,7 @@ function rndTemp() {
 }
 
 function createAllPixels(numLeds) {
-    console.log("Recreating " + numLeds + " pixels")
+//    console.log("Recreating " + numLeds + " pixels")
 	var pixels = []
 	pixels[0] = createPixel(rndTemp())
 	for(var i = 0; i < numLeds; i += 7) {
@@ -67,12 +67,13 @@ var temperatureColorMap = createTemperatureMap()
 module.exports = function(_numLeds) { return {
 
     // FX configuration
+    _inputIndexes: [],
     numLeds: _numLeds,
     pixels: [ createAllPixels(_numLeds), createAllPixels(_numLeds) ] ,
     foo: 0,
     
     getInputIndexes: function() {
-        return []
+        return this._inputIndexes
     },
     
     getName: function() {

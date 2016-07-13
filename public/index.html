@@ -5,7 +5,11 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/jquery.ui.touch-punch.min.js"></script>
 <link rel="stylesheet" href="jquery-ui.css">
-  
+
+<!-- source: https://github.com/kamranahmedse/jquery-toast-plugin -->  
+<script src="/toast/jquery.toast.min.js"></script>
+<link rel="stylesheet" href="toast/jquery.toast.min.css">
+
 <style>
 #simDiv {
     height: 25px;
@@ -47,6 +51,17 @@ td.ledstrip {
 
   socket.on('toast', function(msg) {
     console.log("Got toast: " + msg);
+	$.toast({
+		text: msg,
+		icon: 'info',
+		showHideTransition: 'slide', // fade, slide or plain
+		allowToastClose: false,
+		hideAfter: 3000,
+		stack: 5,
+		position: 'bottom-center',
+		textAlign: 'center',
+		loader: false,
+	});
   })
   
   var fxConfigUpdaters = []
@@ -183,7 +198,7 @@ $(document).ready(function() {
 
 <h1 id="title">World Domination - Regalbrett</h1>
 <a href="/">Reload</a><br>
-
+<a href="zcon.html">ZCon</a><br>
 
 <h2>Live Preview:</h2>
 <div id="simDiv"><div id="sim" style="display: block;">Error connecting to server...</div></div>
@@ -191,10 +206,11 @@ $(document).ready(function() {
 <button onclick="setColorUpdate(!colorUpdateEnabled)" id="btn_ColorUpdateToggler">Start</button><br>
 <button onclick="colorUpdateOneshot()" id="btn_ColorUpdateOneshot" style="display: none">Oneshot</button><br>
 
+<!--
 <hr>
 <h2>Configuration</h2>
 <b>Whole Configuration:</b>
-<button onclick='doCfgSave(); return false;' id='btn_CfgSave'>Save</button>&nbsp;&nbsp;&nbsp;<button onclick='doCfgLoad(); return false;' id='btn_CfgLoad'>Load</button><br>
+<button onclick='doCfgSave(); return false;' id='btn_CfgSave'>Save</button>&nbsp;&nbsp;&nbsp;<button onclick='doCfgLoad(); return false;' id='btn_CfgLoad'>Load</button><br>-->
 <hr>
 <div><form id="configForm">Loading config...</form></div>
 

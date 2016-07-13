@@ -1,13 +1,19 @@
 var util = require('./fx_util')
+var dict = require("dict")
 
-module.exports = function(_numLeds) { return {
+module.exports = function(numLeds, configManager) { return {
 
     // FX configuration
-    numLeds: _numLeds,
-	color: { r: 0, g: 0, b: 0 },
+	_inputIndexes: [],
+	_numLeds: numLeds,
+	_configManager: configManager,
     
+	variables: dict({
+		color: util.rgb(0, 0, 0),
+	}),
+
     getInputIndexes: function() {
-        return [3]
+        return this._inputIndexes
     },
     
     getName: function() {
@@ -15,6 +21,7 @@ module.exports = function(_numLeds) { return {
     },
 	
     getConfigHtml: function(idx) {
+		var color = this.variables.get("color")
 		var prefix = "fx" + idx
 //console.log("getConfigHtml("+idx+")")
 		html  = "<style>."+prefix+"_colBtn span{width:40px;height:40px;display:inline-block;margin:5px}</style>\n"
@@ -45,9 +52,9 @@ function "+prefix+"_setColor(col) {\n\
 };\n\
 $(function(){\n\
 	o={min:0,max:255,change:"+prefix+"_singleColor,slide:"+prefix+"_singleColor};\n\
-	a=$('#"+prefix+"_color_red');a.slider(o);a.slider('option','value',"+this.color.r+");\n\
-	a=$('#"+prefix+"_color_green');a.slider(o);a.slider('option','value',"+this.color.g+");\n\
-	a=$('#"+prefix+"_color_blue');a.slider(o);a.slider('option','value',"+this.color.b+");\n\
+	a=$('#"+prefix+"_color_red');a.slider(o);a.slider('option','value',"+color.r+");\n\
+	a=$('#"+prefix+"_color_green');a.slider(o);a.slider('option','value',"+color.g+");\n\
+	a=$('#"+prefix+"_color_blue');a.slider(o);a.slider('option','value',"+color.b+");\n\
 	"+prefix+"_noUpdate=false;\n\
 	fxConfigUpdaters["+idx+"]=function(cfg){\n\
 		console.log('fxConfigWrite->singleColor got cfg: ');\n\
@@ -69,27 +76,28 @@ function "+prefix+"_singleColor() {\n\
     },
 	
 	getConfigData: function() {
-		return { color: this.color }
+		return { color: this.variables.get('color') }
 	},
 	
 	setConfigData: function(data) {
 		console.log("singleColor.setConfigData:")
 		console.log(data)
-		this.color = data.color
+		this.variables.set('color', data.color)
 	},
     
 	saveConfigData: function() {
-		return { color: this.color }
+		return { color: this.variables.get('color') }
 	},
 	
 	loadConfigData: function(data) {
-		this.color = data.color
+		this.variables.set('color', data.color)
 	},
     
     renderColors: function(inputColors, variables) {
         var colors = []
-		for(var idx=0; idx < this.numLeds; idx++) {
-			colors[idx] = this.color
+		var color = this.variables.get('color')
+		for(var idx=0; idx < this._numLeds; idx++) {
+			colors[idx] = color
 		}
     	return colors
     },

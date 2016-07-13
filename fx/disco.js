@@ -3,6 +3,7 @@ var util = require('./fx_util')
 module.exports = function(_numLeds, name) { return {
 
     // FX configuration
+    _inputIndexes: [],
     numLeds: _numLeds,
     macros: [{
       speed: 2,
@@ -71,7 +72,7 @@ module.exports = function(_numLeds, name) { return {
     bpm: 150,
 	
     getInputIndexes: function() {
-        return []
+        return this._inputIndexes
     },
     
     getName: function() {
