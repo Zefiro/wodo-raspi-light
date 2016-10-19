@@ -16,7 +16,8 @@ var colors = new Array(NUM_LEDS)
 var fxList = []
 
 // available effects for the user to select
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'dmx', 'shadowolf']
+// Unfinished Effects: dmx, transpose, merge, combine, shippo
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -36,6 +37,16 @@ process.on('SIGINT', function () {
 //  res.redirect(302, '/rpi/regalbrett/');
 //});
 app.use('/', require('express').static(__dirname + '/public'))
+
+app.get('/scenario/:sId', function(req, res) {
+	var sId = req.params.sId
+	if (sId == "alarm") {
+        fxList[0] = addEffect('alarm')
+		res.send('Alarm triggered');
+	} else {
+		res.send('Scenario not found: ' + sId);
+	}
+});
 
 http.listen(80, function(){
   console.log('listening on *:80')

@@ -5,7 +5,8 @@ module.exports = function(_numLeds, name) { return {
     // FX configuration
 	_fps: 30,
     numLeds: _numLeds,
-	_offset: 0,
+	/** color offset, 0..255 */
+	_offset: 46,
 	/** amount of 1/10th seconds for one full colorwheel cycle */
     _speed: 6000,
 	/** length (in LEDs) for a full colorwheel. 0=synchronous, all LEDs have the same color */
