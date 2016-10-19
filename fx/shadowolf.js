@@ -1,10 +1,11 @@
 var util = require('./fx_util')
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(numLeds, configManager) { return {
 
     // FX configuration
 	_fps: 30,
-    numLeds: _numLeds,
+	_inputIndexes: [],
+	_numLeds: numLeds,
 
     _fadeOnTime:  5000,
 	_lastTime: 0,
@@ -14,7 +15,7 @@ module.exports = function(_numLeds, name) { return {
 
 	
     getInputIndexes: function() {
-        return []
+        return this._inputIndexes
     },
     
     getName: function() {
@@ -56,9 +57,10 @@ module.exports = function(_numLeds, name) { return {
 		this._cyclelen = data.cyclelen
 	},
 
-    renderColors: function(inputColors) {
+    renderColors: function(inputColors, variables) {
 		var timeMs = Date.now() - this._lastTime;
 		colors = []
+		console.log(this._mode)
 		for (var i = 0; i < this.numLeds; i++) {
 			switch (this._mode) {
 				case 0:

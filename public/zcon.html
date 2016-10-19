@@ -1,0 +1,159 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>ZCon 2016</title>
+<script src="jquery-2.1.3.js"></script>
+<script src="jquery-ui.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" href="jquery-ui.css">
+
+<!-- source: https://github.com/kamranahmedse/jquery-toast-plugin -->  
+<script src="/toast/jquery.toast.min.js"></script>
+<link rel="stylesheet" href="toast/jquery.toast.min.css">
+
+<style>
+h1 {
+	text-align: center;
+}
+table.userlist {
+    border: 1px solid #808080;
+	border-collapse: collapse;
+}
+th.userlist {
+	text-align: left;
+	background-color: #E0E0E0;
+}
+tr.userlist {
+	background-color: #FFFFF;
+}
+tr.userlist:nth-child(even) {
+	background-color: #D0FFD0;
+}
+td.currentuser {
+	background-color: #FFD0D0;	
+}
+td.userlist {
+}
+table.outeruserlist {
+	width: 100%
+}
+tr.currentuser {
+    border: 2px solid #FF8080;
+}
+td.outeruserlist {
+	vertical-align: top;
+	text-align: center;
+}
+</style>
+
+<script language="JavaScript"><!--
+
+  var socket = io();
+  var clientId = undefined;
+  
+  socket.on('fxClientId', function(data){
+      clientId = data
+  })
+
+  socket.on('toast', function(msg) {
+    console.log("Got toast: " + msg);
+	$.toast({
+		text: msg,
+		icon: 'info',
+		showHideTransition: 'slide', // fade, slide or plain
+		allowToastClose: false,
+		hideAfter: 3000,
+		stack: 5,
+		position: 'bottom-center',
+		textAlign: 'center',
+		loader: false,
+	});
+  })
+  
+socket.on('zconListWrite', function(data){
+	createTable(data)
+});
+
+function createTable(data) {
+	var users = data.users
+	console.log(data.lastUser)
+	users.sort(function(a,b){ return a.nick.localeCompare(b.nick) })
+	var currentUserIdx = users.findIndex(function(user) { return data.lastUser && user.rfid == data.lastUser.rfid })
+	
+	var tableLength = 11
+	var outerTable = $('<table class="outeruserlist"></table>');
+	var outerRow = $('<tr class="outeruserlist"></tr>');
+    for (var i = 0; i < users.length / tableLength; i++) {
+		var outerCell = $('<td class="outeruserlist"></td>');
+		var table = $('<table class="userlist"><tr class="userlist"><th class="userlist"></th><th class="userlist">Nick</th><th class="userlist"></th><th class="userlist">Da?</th><th class="userlist">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#</th></tr></table>');
+		for(var idx = i * tableLength; idx < (i+1) * tableLength && idx < users.length; idx++) {
+			var user = users[idx]
+			var cashImg = user.paid == 1 ? "cash.png" : user.paid == 2 ? "no-cash.png" : "transparent.png"
+			var daImg = user.da == 1 ? "check.png" : user.da == 2 ? "cancel.png" : "transparent.png"
+			var cssClass = (idx == currentUserIdx) ? "userlist currentuser" : "userlist"
+			var row = $('<tr class="'+cssClass+'"></tr>');
+			var html = '<td class="'+cssClass+'" style="text-align: right;">'+(idx+1)+'.&nbsp;</td><td class="'+cssClass+'">'+user.nick+'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td class="'+cssClass+'">'
+			html += '<img src="images/'+cashImg+'" style="width:20px;height:20px">'
+			html += '</td><td class="'+cssClass+'"><img src="images/'+daImg+'" style="width:20px;height:20px"></td>'
+			html += '</td><td class="'+cssClass+'" style="text-align: right;">'+user.counter+'</td>'
+			var cell = $(html);
+			row.append(cell);
+			table.append(row);
+		}
+		outerCell.append(table)
+		outerRow.append(outerCell)
+	}
+	outerTable.append(outerRow)
+    $('#userlist').html(outerTable)
+}
+
+var selfPageContent = null;
+function checkPageRefresh() {
+    $.ajax({type:"GET", url:window.location.href, success:function(data,textStatus,jqXHR) {
+        if (jqXHR.status == 200) {
+            if (selfPageContent === null || selfPageContent == data) {
+                // not changed - try again later
+                console.log("$Self not changed - checking again later");
+                selfPageContent = data;
+                setTimeout(checkPageRefresh, 5000);
+            } else {
+                // page has changed - reload
+                console.log("$Self changed, reloading");
+                window.location.replace(window.location.href);
+            }
+        } else {
+            // load error - try again later
+            console.log("While checking $Self, got status " + textStatus);
+            setTimeout(checkPageRefresh, 2000);
+            $('title').html = "Connection lost, retrying...";
+        }
+    }, error:function(jqXHR, textStatus, errorThrown) {
+        console.log("$Self not retrieveable - trying again later");
+        // load error - try again later
+        setTimeout(checkPageRefresh, 2000);
+        // make sure a reload is triggered afterwards (to restart the simulation)
+        selfPageContent = "changed";
+    }});
+}
+
+$(document).ready(function() {
+    socket.emit('fxClientId')
+    socket.emit('zconListRead', 0);
+    checkPageRefresh();
+});
+
+// --></script>
+
+</head>
+<body>
+
+<h1 id="title">ZCon 2016 - Infoscreen</h1>
+<a href="/">Reload</a><br>
+
+
+<hr>
+<h2>Teilnehmerliste</h2>
+<div id="simDiv"><div id="userlist" style="display: block;">Connecting to server...</div></div>
+
+<br>
+
+</body></html>

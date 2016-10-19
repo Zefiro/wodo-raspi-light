@@ -5,10 +5,10 @@ module.exports = function(_numLeds, name) { return {
     // FX configuration
     numLeds: _numLeds,
     transparency: 0,
-    inputIndexList: [1, 2],
+    _inputIndexes: [],
     
     getInputIndexes: function() {
-        return this.inputIndexList
+        return this._inputIndexes
     },
     
     getName: function() {

@@ -3,6 +3,7 @@ var util = require('./fx_util')
 module.exports = function(_numLeds, name) { return {
 
     // FX configuration
+    _inputIndexes: [],
 	_fps: 30,
     numLeds: _numLeds,
 	/** color offset, 0..255 */
@@ -13,7 +14,7 @@ module.exports = function(_numLeds, name) { return {
 	_cyclelen: 600,
 	
     getInputIndexes: function() {
-        return []
+        return this._inputIndexes
     },
     
     getName: function() {
@@ -59,7 +60,7 @@ module.exports = function(_numLeds, name) { return {
 		else { pos -= 170; return { r: pos * 3, g: 255 - pos * 3, b: 0 } }
 	},
 
-    renderColors: function(inputColors) {
+    renderColors: function(inputColors, variables) {
 		colors = []
 		for (var i = 0; i < this.numLeds; i++) {
 			var colIdx = this._offset + (this._cyclelen ? 256 * i / this._cyclelen : 0)
