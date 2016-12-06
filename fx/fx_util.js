@@ -135,6 +135,23 @@ module.exports = {
 			var "+cfg.id+" = parseInt($('#"+prefix+cfg.id+"').val());\n\
 ")
 				scriptconfig.push(cfg.id + ":" + cfg.id)
+			} else if (cfg.type === 'combo') {
+				controls_html.push("<b>" + cfg.name + ":</b>&nbsp;<select id='" + prefix + cfg.id + "'>")
+				Object.keys(cfg.combo).forEach(function(key) {
+        			controls_html.push("<option value='"+key+"'>"+cfg.combo[key]+"</option>")
+			    })
+				controls_html.push("</select>&nbsp;&nbsp;" + cfg.desc)
+				scriptinit.push("\
+	$('#"+prefix+cfg.id+"').val('"+config[cfg.id]+"')\n\
+	$('#"+prefix+cfg.id+"').change("+prefix+"valueChange)\n\
+")
+				scriptupdate.push("\
+			$('#"+prefix+cfg.id+"').val(cfg."+cfg.id+")\n\
+")
+				scriptwrite.push("\
+			var "+cfg.id+" = $('#"+prefix+cfg.id+"').val();\n\
+")
+				scriptconfig.push(cfg.id + ":" + cfg.id)
 			} else if (cfg.type === 'button') {
 				controls_html.push("<button type='button' id='" + prefix + cfg.id + "_btn'>" + cfg.name + "</button><input type='hidden' id='" + prefix + cfg.id + "'> " + cfg.desc)
 				scriptinit.push("\
