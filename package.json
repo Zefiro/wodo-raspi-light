@@ -1,0 +1,18 @@
+{
+  "name": "wodo-raspi-light",
+  "version": "0.0.1",
+  "repository": "Zefiro/wodo-raspi-light",
+  "dependencies": {
+    "compression": "*",
+    "dict": "*",
+    "errorhandler": "*",
+    "express": "*",
+    "http": "*",
+    "i2c-bus": "*",
+    "pn532": "*",
+    "q": "*",
+    "rpi-gpio": "*",
+    "serialport": "*",
+    "socket.io": "*"
+  }
+}
