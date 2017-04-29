@@ -104,7 +104,9 @@ io.on('connection', function(socket){
         fullDisco();
     } else {
 		fxList = []
-        fxList[0] = addEffect('fx_rfid').requireIdx([1])
+// only for ZCon
+//        fxList[0] = addEffect('fx_rfid').requireIdx([1])
+        fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect(fxNames[data])
     }
     sendFullConfig()
@@ -314,6 +316,7 @@ var timerId = setInterval(function () {
 }, 1000 / TARGET_FPS)
 
 
+
 console.log('Press <ctrl>+C to exit.')
 
 
@@ -334,7 +337,8 @@ function fullDisco() {
 }
 
 
-fxList[0] = addEffect('fx_rfid').requireIdx([1])
-fxList[1] = addEffect('rainbow')
+// only for ZCon
+//fxList[0] = addEffect('fx_rfid').requireIdx([1])
+//fxList[1] = addEffect('rainbow')
 
-//doCfgLoad()
+doCfgLoad()
