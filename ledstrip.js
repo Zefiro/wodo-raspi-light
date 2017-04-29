@@ -100,10 +100,12 @@ io.on('connection', function(socket){
 
   socket.on('setFx', function(data) {
     console.log("setFx("+data+")")
-    if (fxNames[data] === "disco") {
+    // TODO only for "Regalbrett"
+    if (false && fxNames[data] === "disco") {
         fullDisco();
     } else {
 		fxList = []
+		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
 // only for ZCon
 //        fxList[0] = addEffect('fx_rfid').requireIdx([1])
         fxList[0] = addEffect('freeze').requireIdx([1])
@@ -327,13 +329,13 @@ function fullDisco() {
     stripWindow = addEffect('disco')
     stripWindow.fx.numLeds = 41
     stripMerge = addEffect('merge')
-    stripMerge.fx.s_indexes = [ 1, 2 ]
+    stripMerge.fx.s_indexes = [ 2, 3 ]
     stripMerge.fx.s_length = stripWindow.fx.numLeds
     stripMerge.fx.s_start = stripWall.fx.numLeds
 
-    fxList[0] = stripMerge
-    fxList[1] = stripWall
-    fxList[2] = stripWindow
+    fxList[1] = stripMerge
+    fxList[2] = stripWall
+    fxList[3] = stripWindow
 }
 
 

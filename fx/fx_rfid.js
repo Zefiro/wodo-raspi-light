@@ -28,7 +28,7 @@ serialport.list(function (err, ports) {
 */
 
 module.exports = function(numLeds, configManager) { 
-	self = {
+	var self = {
 
     // FX configuration
 	_inputIndexes: [],
@@ -124,7 +124,7 @@ module.exports = function(numLeds, configManager) {
 		    if (value.rfid === data) user = value
 		})
 		if (!user) {
-			user = {rfid: data, nick:"User #"+(users.length+1), counter:0, da: 0, paid: 1 }
+			user = {rfid: data, nick:"User #"+(users.length+1), counter:0, da: 0, paid: 1, day: 'DO' }
 			console.log("New user found (rfid='" + user.rfid + "')")
 			users.push(user)
    			this._configManager.toast("New user found (rfid='" + user.rfid + "')")
@@ -197,11 +197,13 @@ module.exports = function(numLeds, configManager) {
 			console.log("fx_rfid: Failed to read config file " + this.usersFilename)
 		}.bind(this))
 		p.then(function (data) {
+                        console.log("rx_rfid: parsing userlist")
 			var users = JSON.parse(data)
             users.lastUser = null
 			this.variables.set('users', users)
 			this._configManager.update()
 			this._configManager.updateUsers()
+			console.log("fx_rfid: userlist loaded ("+users.users.length+" users)")
 		}.bind(this))
 	},
     
@@ -239,6 +241,7 @@ module.exports = function(numLeds, configManager) {
 			var metaconfig = { c: [
 				{ name: 'Nick', type: 'string', id: 'nick', desc: 'Nickname', css:'width:150px;' },
 				{ name: 'Counter', type: 'int', id: 'counter', desc: 'Counter', css:'width:50px;' },
+				{ name: 'day', type: 'string', id: 'day', desc: 'day of arrival (DO / FR)', css:'width:50px;' },
 				{ name: 'da', type: 'int', id: 'da', desc: '0 = kommt noch, 1 = anwesend, 2 = abgesagt', css:'width:50px;' },
 				{ name: 'paid', type: 'int', id: 'paid', desc: '0 = non-pay, 1 = paid, 2 = unpaid', css:'width:50px;' },
 				{ name: 'Save', type: 'button', id: 'mode', desc: 'Saves current color to this user', css:'width:50px;' },
@@ -257,6 +260,7 @@ module.exports = function(numLeds, configManager) {
         return {
 			nick: user.nick,
 			counter: user.counter,
+			day: user.day,
 			da: user.da,
 			paid: user.paid,
         }
@@ -271,6 +275,7 @@ module.exports = function(numLeds, configManager) {
 		}
 		user.nick = data.nick
 		user.counter = data.counter
+		user.day = data.day
 		user.da = data.da
 		user.paid = data.paid
 		if (data.mode) {

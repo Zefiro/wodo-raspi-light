@@ -36,17 +36,29 @@ function createAllPixels(numLeds) {
 	return pixels
 }
 
-function createTemperatureMap() {
+function createTemperatureMap(color) {
     var colors = new Array(256)
-    var colormap = [
-        {idx:   0, col: {r:   0, g:   0, b:   0}},
-        {idx:  25, col: {r:  50, g:   0, b:   0}},
-        {idx: 100, col: {r: 255, g:   0, b:   0}},
-        {idx: 220, col: {r: 255, g: 128, b:   0}},
-        {idx: 245, col: {r: 255, g: 180, b:  32}},
-        {idx: 256, col: {r: 255, g: 230, b: 200}},
-    ]
-
+	var colormap
+	console.log("fire: color=" + color)
+	if (color == 'blue') {
+		colormap = [
+			{idx:   0, col: {r:   0, g:   0, b:   0}},
+			{idx:  25, col: {r:   0, g:   0, b:  50}},
+			{idx: 100, col: {r:   0, g:   0, b: 200}},
+			{idx: 220, col: {r:   0, g: 100, b: 210}},
+			{idx: 245, col: {r:  30, g: 160, b: 220}},
+			{idx: 256, col: {r: 150, g: 200, b: 255}},
+		]
+	} else {
+		colormap = [
+			{idx:   0, col: {r:   0, g:   0, b:   0}},
+			{idx:  25, col: {r:  50, g:   0, b:   0}},
+			{idx: 100, col: {r: 255, g:   0, b:   0}},
+			{idx: 220, col: {r: 255, g: 128, b:   0}},
+			{idx: 245, col: {r: 255, g: 180, b:  32}},
+			{idx: 256, col: {r: 255, g: 230, b: 200}},
+		]
+	}
 
     lastIdx = 0
     lastCol = {r: 0, g: 0, b: 0}
@@ -62,15 +74,19 @@ function createTemperatureMap() {
     return colors
 }
 
-var temperatureColorMap = createTemperatureMap()
 
-module.exports = function(_numLeds) { return {
+
+module.exports = function(_numLeds) { 
+	var self = {
 
     // FX configuration
     _inputIndexes: [],
     numLeds: _numLeds,
     pixels: [ createAllPixels(_numLeds), createAllPixels(_numLeds) ] ,
     foo: 0,
+	type: 'fire',
+	color: 'red',
+	temperatureColorMap: [],
     
     getInputIndexes: function() {
         return this._inputIndexes
@@ -79,33 +95,62 @@ module.exports = function(_numLeds) { return {
     getName: function() {
         return "Fire effect"
     },
+	
+	init: function() {
+		temperatureColorMap = createTemperatureMap(this.color)
+	},
     
     /** idx: the index in the effect list. Can be used to identify parameters.
      */
     getConfigHtml: function(idx) {
-        return "There is currently no configuration for this effect<br>"
+		var colorValues = {
+			red: "Red Fire",
+			blue: "Blue Fire",
+		}
+		var typeValues = {
+			fire: 'fire',
+			linear: "linear",
+		}
+		var metaconfig = { c: [
+			{ name: 'color', type: 'combo', id: 'color', desc: 'Color of the effect', css:'width:150px;', combo: colorValues },
+			{ name: 'type', type: 'combo', id: 'type', desc: 'Type of the effect', css:'width:150px;', combo: typeValues },
+		],
+		name: this.getName(),
+		}
+        return util.generateConfigHtml(idx, metaconfig, this.getConfigData())
     },
-    
+	
 	getConfigData: function() {
-		return { }
+        return {
+			color: this.color,
+			type: this.type,
+        }
 	},
 	
 	setConfigData: function(data) {
+		this.color = data.color
+		this.type = data.type
+        temperatureColorMap = createTemperatureMap(this.color)
 	},
-    
-	loadConfigData: function(data) {
-		this.foo = data.foo
-		this.pixels = data.pixels
-	},
-	
+    	
 	saveConfigData: function() {
 	    var cfg = { 
 	        foo: this.foo,
 	        pixels: this.pixels,
+			color: this.color,
+			type: this.type,
 	    }
 		return cfg
 	},
-    
+
+	loadConfigData: function(data) {
+		this.foo = data.foo
+		this.pixels = data.pixels
+		this.color = data.color
+		this.type = data.type
+        temperatureColorMap = createTemperatureMap(this.color)
+	},
+    	    
     
     renderColors: function(inputColors) {
         var colors = []
@@ -125,10 +170,18 @@ module.exports = function(_numLeds) { return {
     		var maxTemp = util.map(this.pixels[0][i].maxTemp, this.pixels[1][i].maxTemp, this.foo)
     		var minTemp = util.map(this.pixels[0][i].minTemp, this.pixels[1][i].minTemp, this.foo)
     		var temp = util.map(maxTemp, minTemp, varianz)
+			
+			if (this.type == "linear") {
+				temp = 255 * i / (this.numLeds-1)
+			}
+			
     		temp = Math.max(0, Math.min(Math.floor(temp), 255))
     		colors[i] = temperatureColorMap[temp]
     	}
     	return colors
     },
     
-}}
+}
+    self.init()
+    return self
+}

@@ -9,6 +9,7 @@ module.exports = function(_numLeds, name) { return {
       speed: 2,
       steps: [
         "............",
+        "............",
     ]},{
       speed: 2,
       steps: [
@@ -17,6 +18,7 @@ module.exports = function(_numLeds, name) { return {
         "R.....R.....",
         "............",
         "R..R..R..R..",
+        "............",
     ]},{
       speed: 2,
       steps: [
@@ -25,6 +27,7 @@ module.exports = function(_numLeds, name) { return {
         ".G.....G....",
         "....G.....G.",
         ".G.....G....",
+        "....G.....G.",
     ]},{
       speed: 2,
       steps: [
@@ -46,11 +49,13 @@ module.exports = function(_numLeds, name) { return {
         ".G..G.......",
         ".......G..G.",
         "..B..B..B..B",
+        "............",
     ]},{
       speed: 2,
       steps: [
         ".W.W.W.W.W.W",
-    ]},{
+        "............",
+/*    ]},{
       speed: 6,
       steps: [
         "Y..........Y",
@@ -65,11 +70,11 @@ module.exports = function(_numLeds, name) { return {
         "..Y......Y..",
         ".Y........Y.",
         "Y..........Y",
-    ]}],
+*/    ]}],
     actStep: 0,
     actMacro: 0,
     stepLastTime: new Date().getTime(),
-    bpm: 150,
+    bpm: 130,
 	
     getInputIndexes: function() {
         return this._inputIndexes
@@ -94,6 +99,8 @@ module.exports = function(_numLeds, name) { return {
 	
 	setConfigData: function(data) {
 	    this.bpm = data.bpm
+            this.stepLastTime = new Date().getTime()
+            this.actStep = 0
 	},
 
 	saveConfigData: function() {
@@ -104,19 +111,24 @@ module.exports = function(_numLeds, name) { return {
 	    this.bpm = data.bpm
 	},
 
+nextTaktOff: 0,
     renderColors: function(inputColors) {
 		colors = []
 		// calculate current step
 		stepSpeed = 60 * 1000 / (this.bpm) / this.macros[this.actMacro].speed
-		now = new Date().getTime()
+		bpmSpeed = 60 * 1000 / (this.bpm) / 4
+		var now = new Date().getTime()
 		if (this.stepLastTime + stepSpeed <= now) {
 		    this.stepLastTime = now
 		    this.actStep++
 		    if (this.actStep >= this.macros[this.actMacro].steps.length) {
 		        this.actStep = 0
 		        this.actMacro = util.getRandomInt(0, this.macros.length-1)
-		        console.log("Macro #" + this.actMacro + " (" + this.macros[this.actMacro].steps.length + " steps)")
+//		        console.log("Macro #" + this.actMacro + " (" + this.macros[this.actMacro].steps.length + " steps)")
 		    }
+if (this.actStep % this.macros[this.actMacro].speed == 0) {
+    this.nextTaktOff = now + 60 * 1000 / this.bpm / 2
+}
 		}
 		// display step
 		current = this.macros[this.actMacro].steps[this.actStep]
@@ -138,6 +150,9 @@ module.exports = function(_numLeds, name) { return {
             colors[i*5+3] = black
             colors[i*5+4] = black
 		}
+// DEBUG bpm display
+var taktCol = util.rgb(0, (this.nextTaktOff > now) ? 10 : 0, 0)
+colors[3] = taktCol
 //		console.log(this.actStep + " / " + this.steps.length + " / " + (now+1))
     	return colors
     },
