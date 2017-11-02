@@ -43,9 +43,17 @@ app.get('/scenario/:sId', function(req, res) {
 	console.log("Scenario requested: " + sId)
 	if (sId == "alarm") {
         fxList[0] = addEffect('alarm')
-		res.send('Alarm triggered');
+		res.send('Alarm triggered')
+	} else if (sId == "alarm2") {
+        fxList[0] = addEffect('alarm')
+        fxList[0].fx._duration = 200
+        fxList[0].fx._speed = 1
+		res.send('Alarm triggered')
+	} else if (sId == "load") {
+		doCfgLoad()
+		res.send('Stored Scenario loaded')
 	} else {
-		res.send('Scenario not found: ' + sId);
+		res.send('Scenario not found: ' + sId)
 	}
 });
 http.listen(80, function(){
@@ -235,7 +243,7 @@ function doCfgLoad(socket, msg) {
     var p=Q.nfcall(fs.readFile, cfgFilename, {encoding: 'utf-8'})
     p.fail(function () {
         console.log("Failed to read config file " + cfgFilename)
-        socket.emit("toast", "Failed to read config")
+        socket && socket.emit("toast", "Failed to read config")
     })
     p.then(function (data) {
         var config = JSON.parse(data)
@@ -247,7 +255,7 @@ function doCfgLoad(socket, msg) {
             fxList.push(fx)
         }
         sendFullConfig()
-        socket.emit("toast", "Config loaded")
+        socket && socket.emit("toast", "Config loaded")
     })
 }
 
