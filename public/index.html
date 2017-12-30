@@ -172,7 +172,9 @@ function hex2rgb(hex) {
 }
 
 function doCfgSave() {
-    socket.emit('cfgDoSave', 0);
+	if (confirm("Really overwrite boot-up config?")) {
+		socket.emit('cfgDoSave', 0);
+	}
 }
 
 function doCfgLoad() {

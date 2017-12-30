@@ -175,7 +175,7 @@ module.exports = function(numLeds, configManager) {
             console.log('Serial port "' + this._comPortName + '" opened')
 			this._ready = true
         }.bind(this));
-        serial.on('error', function (data) {
+        serial.on('error', function (error) {
            console.log('fx_rfid: failed to open serial port ' + this._comPortName + ': ' + error)
 		   this._ready = false
         }.bind(this));
