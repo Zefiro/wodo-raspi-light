@@ -47,13 +47,15 @@ app.get('/scenario/:sId', function(req, res) {
 	console.log("Scenario requested: " + sId)
 	if (sId == "alarm") {
 		fxList = []
-        fxList[0] = addEffect('alarm')
+        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[1] = addEffect('alarm')
 		res.send('Alarm triggered')
 	} else if (sId == "alarm2") {
 		fxList = []
-        fxList[0] = addEffect('alarm')
-        fxList[0].fx._duration = 200
-        fxList[0].fx._speed = 1
+        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[1] = addEffect('alarm')
+        fxList[1].fx._duration = 200
+        fxList[1].fx._speed = 1
 		res.send('Alarm2 triggered')
 	} else if (sId == "calm") {
 		fxList = []
