@@ -17,7 +17,7 @@ var fxList = []
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, merge, combine, shippo
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
+var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'misan']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 var variables = dict()
@@ -33,19 +33,61 @@ process.on('SIGINT', function () {
     process.nextTick(function () { process.exit(0) })
 })
 
-//app.get('/', function(req, res){
-//  res.redirect(302, '/rpi/regalbrett/');
-//});
+process.on('uncaughtException', function (err) {
+    // handle the error safely
+    console.log(err.stack)
+    ws281x.reset()
+    process.nextTick(function () { process.exit(0) })
+})
+
 app.use('/', require('express').static(__dirname + '/public'))
 
 app.get('/scenario/:sId', function(req, res) {
 	var sId = req.params.sId
 	console.log("Scenario requested: " + sId)
 	if (sId == "alarm") {
-        fxList[0] = addEffect('alarm')
-		res.send('Alarm triggered');
+		fxList = []
+        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[1] = addEffect('alarm')
+		res.send('Alarm triggered')
+	} else if (sId == "alarm2") {
+		fxList = []
+        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[1] = addEffect('alarm')
+        fxList[1].fx._duration = 200
+        fxList[1].fx._speed = 1
+		res.send('Alarm2 triggered')
+	} else if (sId == "calm") {
+		fxList = []
+        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[1] = addEffect('rainbow')
+        fxList[1].fx.len = 98
+        fxList[1].fx.cyclelen = 600
+        fxList[1].fx.speed = 6000
+        fxList[1].fx._offset = 50
+		res.send('Calming down...')
+	} else if (sId == "disco") {
+		fxList = []
+        fxList[0] = addEffect('freeze').requireIdx([1])
+		stripWall = addEffect('disco')
+		stripWall.fx.numLeds = 57
+		stripWindow = addEffect('disco')
+		stripWindow.fx.numLeds = 41
+		stripMerge = addEffect('merge')
+		stripMerge.fx.s_indexes = [ 2, 3 ]
+		stripMerge.fx.s_length = stripWindow.fx.numLeds
+		stripMerge.fx.s_start = stripWall.fx.numLeds
+
+		fxList[1] = stripMerge
+		fxList[2] = stripWall
+		fxList[3] = stripWindow
+		res.send('Let\'s rock!')
+	} else if (sId == "load") {
+		doCfgLoad()
+		res.send('Stored Scenario loaded')
 	} else {
-		res.send('Scenario not found: ' + sId);
+     	console.log("Scenario not found: " + sId)
+		res.status(404).send('Scenario not found: ' + sId)
 	}
 });
 
@@ -75,7 +117,10 @@ function getNewClientId() {
 	return ++latestClientId
 }
 
-io.on('connection', function(socket){
+var socket = {}
+
+io.on('connection', function(s) {
+  socket = s
   var clientId = getNewClientId()
   console.log('a user connected from ' + socket.client.conn.remoteAddress + ", clientId=" + clientId)
 
@@ -112,7 +157,10 @@ io.on('connection', function(socket){
     if (false && fxNames[data] === "disco") {
         fullDisco();
     } else {
-//		fxList.length = 2 // safest way to keep the same object, but get rid of additional effects
+		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
+// only for ZCon
+//        fxList[0] = addEffect('fx_rfid').requireIdx([1])
+        fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect(fxNames[data])
     }
     sendFullConfig()
@@ -137,6 +185,7 @@ io.on('connection', function(socket){
   socket.on('cfgDoLoad', function(msg){
     doCfgLoad(socket, msg)
   })
+
 })
 
 /* Idea for better implementation of cfg send
@@ -193,7 +242,7 @@ var configManager = {
 function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
     console.log("adding effect " + fxName + " as " + fxVarName + " (" + NUM_LEDS + ")")
-	effect = require('./fx/' + fxName)(NUM_LEDS, configManager)
+	effect = require('./fx/' + fxName)(NUM_LEDS, configManager, socket)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
@@ -240,7 +289,7 @@ function doCfgLoad(socket, msg) {
     var p=Q.nfcall(fs.readFile, cfgFilename, {encoding: 'utf-8'})
     p.fail(function () {
         console.log("Failed to read config file " + cfgFilename)
-        socket.emit("toast", "Failed to read config")
+        socket && socket.emit("toast", "Failed to read config")
     })
     p.then(function (data) {
         var config = JSON.parse(data)
@@ -252,7 +301,7 @@ function doCfgLoad(socket, msg) {
             fxList.push(fx)
         }
         sendFullConfig()
-        socket.emit("toast", "Config loaded")
+        socket && socket.emit("toast", "Config loaded")
     })
 }
 
@@ -300,29 +349,31 @@ var pixelData = new Uint32Array(NUM_LEDS)
 var fps_lastDate = new Date()
 var fps_smoothed = 1000 / TARGET_FPS
 
-var timerId = setInterval(function () {
-    fps_currentDate = new Date()
-    timediff = fps_currentDate - fps_lastDate
-    fps_lastDate = fps_currentDate
-    fps_smoothed = (fps_smoothed * 31 + timediff) / 32
-    
-    logD("Timer: render all colors")
-    colors = renderColors()
-    // set the colors
-	if (colors === undefined || colors.length != NUM_LEDS) {
-		console.log("colors is undefined or of wrong length! Aborting!")
-		process.exit(1)
-	}
-    for(var i=0; i<NUM_LEDS; i++) { 
-		pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
-	}
-	ws281x.render(pixelData)
-	
-//    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
-}, 1000 / TARGET_FPS)
+// only add effects and start rendering, when socket is loaded. pass socket to effect module
+function startRendering() {
+    var timerId = setInterval(function () {
+        fps_currentDate = new Date()
+        timediff = fps_currentDate - fps_lastDate
+        fps_lastDate = fps_currentDate
+        fps_smoothed = (fps_smoothed * 31 + timediff) / 32
+        
+        logD("Timer: render all colors")
+        colors = renderColors()
+        // set the colors
+        if (colors === undefined || colors.length != NUM_LEDS) {
+            console.log("colors is undefined or of wrong length! Aborting!")
+            process.exit(1)
+        }
+        for(var i=0; i<NUM_LEDS; i++) { 
+            pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+        }
+        ws281x.render(pixelData)
+        
+    //    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
+    }, 1000 / TARGET_FPS)
+}
 
 
-console.log('Press <ctrl>+C to exit.')
 
 
 // scene setting for disco effect on 'Regalbrett'
@@ -341,10 +392,17 @@ function fullDisco() {
     fxList[3] = stripWindow
 }
 
+console.log('Press <ctrl>+C to exit.')
 
-fxList[0] = addEffect('fx_rfid').requireIdx([1])
-fxList[1] = addEffect('fire')
-fxList[2] = addEffect('Client', 'Client1')
-fxList[3] = addEffect('Client', 'Client2')
 
-//doCfgLoad()
+if (true) {
+    // only for ZCon
+    fxList[0] = addEffect('fx_rfid').requireIdx([1])
+    fxList[1] = addEffect('fire')
+    fxList[2] = addEffect('Client', 'Client1')
+    fxList[3] = addEffect('Client', 'Client2')
+} else {
+    doCfgLoad()
+}
+
+startRendering()
