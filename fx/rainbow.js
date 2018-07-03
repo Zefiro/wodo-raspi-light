@@ -61,7 +61,7 @@ module.exports = function(_numLeds, name) { return {
 	},
 
     renderColors: function(inputColors, variables) {
-		colors = []
+		var colors = []
 		for (var i = 0; i < this.numLeds; i++) {
 			var colIdx = this._offset + (this._cyclelen ? 256 * i / this._cyclelen : 0)
 			colIdx = Math.floor(colIdx) % 256

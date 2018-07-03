@@ -1,5 +1,6 @@
 module.exports = {
-    
+    clone: require('clone'),
+	
     /** Returns an integer between min..max (inclusive) */
     // http://stackoverflow.com/a/1527820
     getRandomInt: function(min, max) {
@@ -21,7 +22,7 @@ module.exports = {
         return result
     },
 	
-	/** Returns an array of colors of length targetLength  based on copying newColors onto existingColors starting at index startIndex. Missing colors are filled with black.
+	/** Returns an array of colors of length targetLength based on copying newColors onto existingColors starting at index startIndex. Missing colors are filled with black.
 	 *  Usage to ensure a certain length: mergeColors(targetLength, colors)
 	 *  Usage to just return all black: mergeColors(targetLength)
 	 */

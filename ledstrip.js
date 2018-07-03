@@ -90,6 +90,14 @@ app.get('/scenario/:sId', function(req, res) {
 		res.status(404).send('Scenario not found: ' + sId)
 	}
 });
+
+app.get('/client/:clientId', function(req, res) {
+	var clientId = req.params.clientId
+	var clientData = variables.get('Client' + clientId).get('clientData')
+	console.log("Client requested update: " + clientId + ", gets: '" + clientData + "'")
+	res.send(clientData);
+});
+
 http.listen(80, function(){
   console.log('listening on *:80')
 })
@@ -149,10 +157,9 @@ io.on('connection', function(s) {
     if (false && fxNames[data] === "disco") {
         fullDisco();
     } else {
-		fxList = []
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
-    // only for ZCon
-    //        fxList[0] = addEffect('fx_rfid').requireIdx([1])
+// only for ZCon
+//        fxList[0] = addEffect('fx_rfid').requireIdx([1])
         fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect(fxNames[data])
     }
@@ -232,10 +239,11 @@ var configManager = {
 	zconListRead: function() {}
 }
 
-function addEffect(fxName) {
-    console.log("adding effect " + fxName + "(" + NUM_LEDS + ")")
+function addEffect(fxName, fxVarName) {
+    if (!fxVarName) fxVarName = fxName
+    console.log("adding effect " + fxName + " as " + fxVarName + " (" + NUM_LEDS + ")")
 	effect = require('./fx/' + fxName)(NUM_LEDS, configManager, socket)
-	variables.set(fxName, effect.variables)
+	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
         fx: effect,
@@ -297,40 +305,39 @@ function doCfgLoad(socket, msg) {
     })
 }
 
-// used by renderColors() and renderColorsRecursive()
+// used by renderColors() and renderAllColors()
 var tempColors = []
 
-// ensures that tempColors[idx] is defined, by calling renderColors of fxList[idx].fx if it exists (otherwise default to black)
-function renderColorsRecursive(idx) {
-    logD("Entering renderColorsRecursive("+idx+")")
-    if (fxList[idx] === undefined) {
-        logD("renderColorsRecursive: undefined fx[" + idx + "], default to black")
-        tempColors[idx] = util.mergeColors(NUM_LEDS)
-        return
-    }
-    var inputIdxList = fxList[idx].fx.getInputIndexes()    
-    var inputColors = []
-    for(var i = 0; i < inputIdxList.length; i++ ) {
-        var inputIdx = inputIdxList[i]
-        if (inputIdx == idx) {
-            logD("renderColorsRecursive: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-            tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
-        } else if (tempColors[inputIdx] === undefined) {
-            logD("renderColorsRecursive: input #" + i + " is fx #" + inputIdx + " -> not defined yet, recursion")
-            renderColorsRecursive(inputIdx)
-        }
-        inputColors[i] = tempColors[inputIdx]
-        logD("inputColors now defined:")
-//        console.log(inputColors)
-    }
-    logD("renderColorsRecursive: calling fx[" + idx + "] '"+fxList[idx].fx.getName()+"' with inputs: " + inputIdxList)
-    tempColors[idx] = fxList[idx].fx.renderColors(inputColors, variables)
-//    console.log(tempColors)
+function renderAllColors() {
+	for(idx = fxList.length-1; idx >= 0; idx--) {
+		if (fxList[idx] === undefined) {
+			logD("renderAllColors: undefined fx[" + idx + "], default to black")
+			tempColors[idx] = util.mergeColors(NUM_LEDS)
+			continue
+		}
+		var inputIdxList = fxList[idx].fx.getInputIndexes()    
+    	var inputColors = []
+		for(var i = 0; i < inputIdxList.length; i++ ) {
+			var inputIdx = inputIdxList[i]
+			if (inputIdx == idx) {
+				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
+				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
+			} else if (tempColors[inputIdx] === undefined) {
+				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> not defined yet, use black (effects may only use inputs deeper down in the stack)")
+				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
+			}
+			inputColors[i] = tempColors[inputIdx]
+			logD("inputColors now defined:")
+	//        console.log(inputColors)
+		}
+		logD("renderAllColors: calling fx[" + idx + "] '"+fxList[idx].fx.getName()+"' with inputs: " + inputIdxList)
+		tempColors[idx] = fxList[idx].fx.renderColors(inputColors, variables)
+	}
 }
 
 function renderColors() {
     tempColors = []
-    renderColorsRecursive(0)
+	renderAllColors()
     return util.mergeColors(NUM_LEDS, tempColors[0])
 }
 
@@ -369,13 +376,33 @@ function startRendering() {
 
 
 
+// scene setting for disco effect on 'Regalbrett'
+function fullDisco() {
+    stripWall = addEffect('disco')
+    stripWall.fx.numLeds = 57
+    stripWindow = addEffect('disco')
+    stripWindow.fx.numLeds = 41
+    stripMerge = addEffect('merge')
+    stripMerge.fx.s_indexes = [ 2, 3 ]
+    stripMerge.fx.s_length = stripWindow.fx.numLeds
+    stripMerge.fx.s_start = stripWall.fx.numLeds
+
+    fxList[1] = stripMerge
+    fxList[2] = stripWall
+    fxList[3] = stripWindow
+}
+
 console.log('Press <ctrl>+C to exit.')
 
 
-// only for ZCon
-//fxList[0] = addEffect('fx_rfid').requireIdx([1])
-//fxList[1] = addEffect('rainbow')
-
-doCfgLoad()
+if (true) {
+    // only for ZCon
+    fxList[0] = addEffect('fx_rfid').requireIdx([1])
+    fxList[1] = addEffect('fire')
+    fxList[2] = addEffect('Client', 'Client1')
+    fxList[3] = addEffect('Client', 'Client2')
+} else {
+    doCfgLoad()
+}
 
 startRendering()
