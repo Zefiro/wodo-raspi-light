@@ -3,7 +3,7 @@ var dict = require("dict")
 
 // https://github.com/EmergingTechnologyAdvisors/node-serialport/blob/3.1.2/README.md
 var serialport = require('serialport')
-var SerialPort = serialport.SerialPort
+var pn532 = require('pn532');
 
 var fs = require('fs')
 var Q = require('q')
@@ -16,7 +16,7 @@ var Q = require('q')
  *   sudo fuser /dev/ttyAMA0
  */
 
- /*
+/*
 serialport.list(function (err, ports) {
   console.log("Serial ports found:");
     ports.forEach(function(port) {
@@ -25,7 +25,7 @@ serialport.list(function (err, ports) {
       console.log(port.manufacturer);
     });
 });
-*/
+//*/
 
 module.exports = function(numLeds, configManager) { 
 	var self = {
@@ -124,7 +124,7 @@ module.exports = function(numLeds, configManager) {
 		    if (value.rfid === data) user = value
 		})
 		if (!user) {
-			user = {rfid: data, nick:"User #"+(users.length+1), counter:0, da: 0, paid: 1, day: 'DO' }
+			user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2018' }
 			console.log("New user found (rfid='" + user.rfid + "')")
 			users.push(user)
    			this._configManager.toast("New user found (rfid='" + user.rfid + "')")
@@ -132,7 +132,6 @@ module.exports = function(numLeds, configManager) {
 			// assume user arrived when the card is seen
 			if (user.da === 0) {
 				user.da = 1
-				user.counter = 0
 				user.arrivalTime = new Date()
 			}
             console.log("Matching user found: " + user.nick + " ("+user.counter+")")
@@ -167,7 +166,17 @@ module.exports = function(numLeds, configManager) {
 // ------------------------------------------------------------------------------------------------------------------------
 
 	init: function() {
-        var serial = new SerialPort(this._comPortName, {
+		if (true) {
+    		this.init_rfid();
+		} else {
+			this.init_nfc();
+		}
+		this._loadUserlist()
+		this._configManager.zconListRead = this.zconListRead.bind(this)
+	},
+	
+	init_rfid: function() {
+        var serial = new serialport(this._comPortName, {
             baudrate: 9600,
             parser: this.parserForRDM6300(),
         });
@@ -180,13 +189,27 @@ module.exports = function(numLeds, configManager) {
 		   this._ready = false
         }.bind(this));
         serial.on('data', this.receiveSerial.bind(this));
-		this._loadUserlist()
-		this._configManager.zconListRead = this.zconListRead.bind(this)
+	},
+
+	init_nfc: function() {
+        var serial = new serialport(this._comPortName, {
+            baudrate: 115200
+        });
+		var rfid = new pn532.PN532(serial, { pollInterval: 200 } );
+		rfid.on('ready', (function() {
+			console.log('nfc ready')
+			rfid.on('tag', (function(tag) {
+				this.receiveSerial(tag.uid);
+			}).bind(this));
+		}).bind(this));
 	},
 	
 	zconListRead: function(socket, data) {
 		console.log("zconListRead: printing list of users")
-		var users = this.variables.get('users')
+		var users = util.clone(this.variables.get('users'))		
+		users.users = users.users.filter(user => {
+			return user.event == "zcon2018" || user.da == 1
+		})
 		socket.emit("zconListWrite", users)
 	},
 
@@ -197,7 +220,7 @@ module.exports = function(numLeds, configManager) {
 			console.log("fx_rfid: Failed to read config file " + this.usersFilename)
 		}.bind(this))
 		p.then(function (data) {
-                        console.log("rx_rfid: parsing userlist")
+            console.log("rx_rfid: parsing userlist")
 			var users = JSON.parse(data)
             users.lastUser = null
 			this.variables.set('users', users)

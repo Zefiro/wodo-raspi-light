@@ -1,5 +1,5 @@
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>ZCon 2018</title>
+<title>WUM 2016</title>
 <script src="jquery-2.1.3.js"></script>
 <script src="jquery-ui.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -70,12 +70,7 @@ td.outeruserlist {
   })
   
 socket.on('zconListWrite', function(data){
-	var a = data.users.filter(user => user.event == "zcon2018")
-	var b = data.users.filter(user => user.event != "zcon2018")
-	data.users = a
 	createTable(data)
-	data.users = b
-	createTable2(data)
 });
 
 function createTable(data) {
@@ -84,7 +79,7 @@ function createTable(data) {
 	users.sort(function(a,b){ return a.nick.localeCompare(b.nick) })
 	var currentUserIdx = users.findIndex(function(user) { return data.lastUser && user.rfid == data.lastUser.rfid })
 	
-	var tableLength = 11
+	var tableLength = 10
 	var outerTable = $('<table class="outeruserlist"></table>');
 	var outerRow = $('<tr class="outeruserlist"></tr>');
     for (var i = 0; i < users.length / tableLength; i++) {
@@ -94,6 +89,7 @@ function createTable(data) {
 			var user = users[idx]
 			var cashImg = user.paid == 1 ? "cash.png" : user.paid == 2 ? "no-cash.png" : "transparent.png"
 			var day = user.da ? "" : user.day
+			var day = user.day // DEBUG
 			var daImg = user.da == 1 ? "check.png" : user.da == 2 ? "cancel.png" : "transparent.png"
 			var cssClass = (idx == currentUserIdx) ? "userlist currentuser" : "userlist"
 			var row = $('<tr class="'+cssClass+'"></tr>');
@@ -110,39 +106,6 @@ function createTable(data) {
 	}
 	outerTable.append(outerRow)
     $('#userlist').html(outerTable)
-}
-
-function createTable2(data) {
-	var users = data.users
-	console.log(data.lastUser)
-	users.sort(function(a,b){ return a.nick.localeCompare(b.nick) })
-	var currentUserIdx = users.findIndex(function(user) { return data.lastUser && user.rfid == data.lastUser.rfid })
-	
-	var tableLength = 11
-	var outerTable = $('<table class="outeruserlist"></table>');
-	var outerRow = $('<tr class="outeruserlist"></tr>');
-    for (var i = 0; i < users.length / tableLength; i++) {
-		var outerCell = $('<td class="outeruserlist"></td>');
-		var table = $('<table class="userlist"><tr class="userlist"><th class="userlist"></th><th class="userlist">Nick</th><th class="userlist"></th><th class="userlist">Event</th><th class="userlist">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;#</th></tr></table>');
-		for(var idx = i * tableLength; idx < (i+1) * tableLength && idx < users.length; idx++) {
-			var user = users[idx]
-			var cashImg = user.paid == 1 ? "cash.png" : user.paid == 2 ? "no-cash.png" : "transparent.png"
-			var event = user.event
-			var cssClass = (idx == currentUserIdx) ? "userlist currentuser" : "userlist"
-			var row = $('<tr class="'+cssClass+'"></tr>');
-			var html = '<td class="'+cssClass+'" style="text-align: right;">'+(idx+1)+'.&nbsp;</td><td class="'+cssClass+'">'+user.nick+'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><td class="'+cssClass+'">'
-			html += '<img src="images/'+cashImg+'" style="width:20px;height:20px">'
-			html += '</td><td class="'+cssClass+'">'+event+'&nbsp;</td>'
-			html += '</td><td class="'+cssClass+'" style="text-align: right;">'+user.counter+'</td>'
-			var cell = $(html);
-			row.append(cell);
-			table.append(row);
-		}
-		outerCell.append(table)
-		outerRow.append(outerCell)
-	}
-	outerTable.append(outerRow)
-    $('#userlist2').html(outerTable)
 }
 
 var selfPageContent = null;
@@ -166,13 +129,13 @@ function checkPageRefresh() {
             document.title = "Connection lost, retrying...";
 			$('body').html("<h1>Maintenance</h1>Please stand by.")
         document.title = "The End...";
-        $('body').html("<h1>ZCON 2018 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
+        $('body').html("<h1>WUM 2016 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
         }
     }, error:function(jqXHR, textStatus, errorThrown) {
         document.title = "Connection lost, retrying...";
         $('body').html("<h1>Maintenance</h1>Please stand by.")
         document.title = "The End...";
-        $('body').html("<h1>ZCON 2018 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
+        $('body').html("<h1>WUM 2016 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
         console.log("$Self not retrieveable - trying again later");
         // load error - try again later
         setTimeout(checkPageRefresh, 2000);
@@ -192,20 +155,13 @@ $(document).ready(function() {
 </head>
 <body>
 
-<h1 id="title">ZCon 2018 - Infoscreen</h1>
+<h1 id="title">WUM 2016 - Infoscreen</h1>
 <a href="/zcon.html">Reload</a><br>
 
 
 <hr>
 <h2>Teilnehmerliste</h2>
 <div id="simDiv"><div id="userlist" style="display: block;">Connecting to server...</div></div>
-
-
-<div id="list2">
-<hr>
-<h2>Wiederkehrende Teilnehmer</h2>
-<div id="userlist2" style="display: block;">Connecting to server...</div>
-</div>
 
 <br>
 
