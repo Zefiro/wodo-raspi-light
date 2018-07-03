@@ -49,6 +49,15 @@ function createTemperatureMap(color) {
 			{idx: 245, col: {r:  30, g: 160, b: 220}},
 			{idx: 256, col: {r: 150, g: 200, b: 255}},
 		]
+	} else if (color == 'green') {
+		colormap = [
+			{idx:   0, col: {r:   0, b:   0, g:   0}},
+			{idx:  25, col: {r:   0, b:   0, g:  50}},
+			{idx: 100, col: {r:   0, b:   0, g: 200}},
+			{idx: 220, col: {r:   0, b: 100, g: 210}},
+			{idx: 245, col: {r:  30, b: 160, g: 220}},
+			{idx: 256, col: {r: 150, b: 200, g: 255}},
+		]
 	} else {
 		colormap = [
 			{idx:   0, col: {r:   0, g:   0, b:   0}},
@@ -106,6 +115,7 @@ module.exports = function(_numLeds) {
 		var colorValues = {
 			red: "Red Fire",
 			blue: "Blue Fire",
+			green: "Green Fire",
 		}
 		var typeValues = {
 			fire: 'fire',
