@@ -110,6 +110,14 @@ module.exports = {
 			cfg.css && css.push("#"+prefix+cfg.id+"{" + cfg.css + "}")
 			if (cfg.type === 'text') { // static text
 				controls_html.push(cfg.desc)
+			} else if (cfg.type === 'dynamictext') { // readonly, dynamic text
+				controls_html.push((cfg.name ? "<b>" + cfg.name + ":</b>&nbsp;" : "") + "<span id='" + prefix + cfg.id + "'/> " + cfg.desc)
+				scriptinit.push("\
+	$('#"+prefix+cfg.id+"').html('"+config[cfg.id]+"')\n\
+")
+				scriptupdate.push("\
+			$('#"+prefix+cfg.id+"').html(cfg."+cfg.id+")\n\
+")
 			} else if (cfg.type === 'string') {
 				controls_html.push("<b>" + cfg.name + ":</b>&nbsp;<input type='text' id='" + prefix + cfg.id + "'> " + cfg.desc)
 				scriptinit.push("\

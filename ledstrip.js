@@ -1,26 +1,26 @@
 #!/usr//bin/node
 
-var ws281x = require('node-rpi-ws281x-native')
-var app = require('express')()
-var fs = require('fs')
-var Q = require('q')
-var http = require('http').Server(app)
-var io = require('socket.io')(http, { })
-var util = require('./fx/fx_util')
-var dict = require("dict")
+const ws281x = require('node-rpi-ws281x-native')
+const app = require('express')()
+const fs = require('fs')
+const Q = require('q')
+const http = require('http').Server(app)
+const io = require('socket.io')(http, { })
+const util = require('./fx/fx_util')
+const dict = require("dict")
 
 const TARGET_FPS = 50
 
-var NUM_LEDS = parseInt(process.argv[2], 10) || 50
+const NUM_LEDS = parseInt(process.argv[2], 10) || 50
+const fxList = []
 var colors = new Array(NUM_LEDS)
-var fxList = []
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, merge, combine, shippo
-var fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'misan']
+const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'misan']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
-var variables = dict()
+const variables = dict()
 
 logDActivated = false
 
@@ -91,11 +91,20 @@ app.get('/scenario/:sId', function(req, res) {
 	}
 });
 
-app.get('/client/:clientId', function(req, res) {
-	var clientId = req.params.clientId
-	var clientData = variables.get('Client' + clientId).get('clientData')
-	console.log("Client requested update: " + clientId + ", gets: '" + clientData + "'")
-	res.send(clientData);
+app.get('/slave/:slaveId/:type', function(req, res) {
+	var slaveIp = req.ip
+	var slaveId = req.params.slaveId
+	var slaveType = req.params.type
+	console.log("Slave #" + slaveId + " (" + slaveIp + ") pinged" + (slaveType ? " (type: " + slaveType + ")" : ""))
+	
+	var slaveDict = variables.get('Slave' + slaveId)
+	slaveDict.set('slaveIp', slaveIp)
+	slaveDict.set('slaveId', slaveId)
+	slaveDict.set('slaveType', slaveType)
+	slaveDict.set('lastPing', Date.now())
+	slaveDict.set('lastPushed', 0)
+	res.send("ok")
+	sendFullConfig()
 });
 
 http.listen(80, function(){
@@ -158,10 +167,14 @@ io.on('connection', function(s) {
         fullDisco();
     } else {
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
-// only for ZCon
-//        fxList[0] = addEffect('fx_rfid').requireIdx([1])
-        fxList[0] = addEffect('freeze').requireIdx([1])
-        fxList[1] = addEffect(fxNames[data])
+		if (true) { // only for ZCon
+			// keep fxList[0] unchanged, as it holds state
+			fxList[1] = addEffect(fxNames[data])
+			fxList[2] = addEffect('slave', 'Slave1')
+		} else {
+			fxList[0] = addEffect('freeze').requireIdx([1])
+			fxList[1] = addEffect(fxNames[data])
+		}
     }
     sendFullConfig()
   })
@@ -399,8 +412,8 @@ if (true) {
     // only for ZCon
     fxList[0] = addEffect('fx_rfid').requireIdx([1])
     fxList[1] = addEffect('fire')
-    fxList[2] = addEffect('Client', 'Client1')
-    fxList[3] = addEffect('Client', 'Client2')
+    fxList[2] = addEffect('slave', 'Slave1')
+//    fxList[3] = addEffect('slave', 'Slave2')
 } else {
     doCfgLoad()
 }

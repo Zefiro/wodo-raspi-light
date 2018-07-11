@@ -224,6 +224,20 @@ module.exports = function(numLeds, configManager) {
 			var users = JSON.parse(data)
             users.lastUser = null
 			this.variables.set('users', users)
+			if (true) { // use once to reset 'da' of all users
+				var resetCounter = 0
+				console.log(users.users)
+				users.users.forEach(user => {
+					if (user.da) {
+    					user.da = 0
+						resetCounter++
+					}
+				})
+				if (resetCounter) {
+					console.log("Resetting " + resetCounter + " users to be not 'da'")
+    				this._saveUserlist()
+				}
+			}
 			this._configManager.update()
 			this._configManager.updateUsers()
 			console.log("fx_rfid: userlist loaded ("+users.users.length+" users)")
