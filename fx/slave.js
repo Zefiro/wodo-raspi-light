@@ -13,7 +13,7 @@ module.exports = function(_numLeds, name) { return {
 		slaveId: 1,
 		slaveIp: undefined,
 		slaveType: undefined,
-		slaveData: "5 64 128 32 5 5 5 77 88 99 1000 5 64 128 32 5 5 5 77 88 99 1000 5 64 128 32 5 5 5 77 88 99 1000 5 64 128 32 5 5 5 77 88 99 1000",
+		slaveData: "12 64 128 32 5 5 5 77 88 99 1000 2 96 96 0 5 5 5 77 88 99 1000 2 128 0 0 5 5 5 77 88 99 1000 12 64 128 32 5 5 5 77 88 99 1000",
 		lastPushed: 0,
 	}),
 	
@@ -47,6 +47,7 @@ module.exports = function(_numLeds, name) { return {
 	
 	setConfigData: function(data) {
 		this.variables.set('slaveData', data.slaveData)
+		this.variables.set('lastPushed', 0)
 	},
 
 	saveConfigData: function() {

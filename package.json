@@ -14,7 +14,7 @@
     "rpi-gpio": "*",
     "serialport": "*",
     "socket.io": "*",
-	"clone": "*",
-	"axios": "*"
+    "clone": "*",
+    "axios": "*"
   }
 }
