@@ -58,7 +58,7 @@ module.exports = function(numLeds, configManager) {
     // based on https://github.com/EmergingTechnologyAdvisors/node-serialport/blob/master/lib/parsers.js
     parserForRDM6300: function(ignoreRepeatedRfidTimeout, clearBufferTimeout) {
 		var length = 14
-        if (!ignoreRepeatedRfidTimeout) ignoreRepeatedRfidTimeout = 1000
+        if (!ignoreRepeatedRfidTimeout) ignoreRepeatedRfidTimeout = 3 * 1000
         if (!clearBufferTimeout) clearBufferTimeout = 500
         var data = new Buffer(0)
 	    var lastReceivedTime = Date.now()
@@ -205,11 +205,11 @@ module.exports = function(numLeds, configManager) {
 	},
 	
 	zconListRead: function(socket, data) {
-		console.log("zconListRead: printing list of users")
 		var users = util.clone(this.variables.get('users'))		
 		users.users = users.users.filter(user => {
 			return user.event == "zcon2018" || user.da == 1
 		})
+		console.log("zconListRead: printing list of users (" + users.users.length + " of " + this.variables.get('users').users.length + ")")
 		socket.emit("zconListWrite", users)
 	},
 
@@ -224,7 +224,7 @@ module.exports = function(numLeds, configManager) {
 			var users = JSON.parse(data)
             users.lastUser = null
 			this.variables.set('users', users)
-			if (true) { // use once to reset 'da' of all users
+			if (false) { // use once to reset 'da' of all users
 				var resetCounter = 0
 				console.log(users.users)
 				users.users.forEach(user => {

@@ -415,7 +415,8 @@ if (false) {
     fxList[0] = addEffect('fx_rfid').requireIdx([1])
     fxList[1] = addEffect('fire')
     fxList[2] = addEffect('slave', 'Slave1')
-//    fxList[3] = addEffect('slave', 'Slave2')
+    fxList[3] = addEffect('slave', 'Slave2')
+	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
     doCfgLoad()
 }
