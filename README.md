@@ -22,3 +22,7 @@ Each module can be loaded multiple times and placed in the global fx[] array at 
   * split variable calculation and color processing
   * improve documentation, especially about the "fx module interface"
   
+ INFO
+======
+Apparently the on-board sound also uses DMA and cannot be used in parallel. I didn't have any issues with just not using sound, but possibly the sound driver needs to be deactivated.
+See https://pypi.org/project/rpi_ws281x/ and http://jheyman.github.io/blog/pages/RaspberryPiTipsAndTricks/

@@ -6,7 +6,8 @@ const fs = require('fs')
 const Q = require('q')
 const http = require('http').Server(app)
 const io = require('socket.io')(http, { })
-const util = require('./fx/fx_util')
+const fxutil = require('./fx/fx_util')
+const util = require('util')
 const dict = require("dict")
 
 const TARGET_FPS = 50
@@ -42,23 +43,23 @@ process.on('uncaughtException', function (err) {
 
 app.use('/', require('express').static(__dirname + '/public'))
 
-app.get('/scenario/:sId', function(req, res) {
+app.get('/scenario/:sId', async function(req, res) {
 	var sId = req.params.sId
 	console.log("Scenario requested: " + sId)
 	if (sId == "alarm") {
-		fxList = []
+		fxList.length = 0
         fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect('alarm')
 		res.send('Alarm triggered')
 	} else if (sId == "alarm2") {
-		fxList = []
+		fxList.length = 0
         fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
 		res.send('Alarm2 triggered')
 	} else if (sId == "calm") {
-		fxList = []
+		fxList.length = 0
         fxList[0] = addEffect('freeze').requireIdx([1])
         fxList[1] = addEffect('rainbow')
         fxList[1].fx.len = 98
@@ -67,7 +68,7 @@ app.get('/scenario/:sId', function(req, res) {
         fxList[1].fx._offset = 50
 		res.send('Calming down...')
 	} else if (sId == "disco") {
-		fxList = []
+		fxList.length = 0
         fxList[0] = addEffect('freeze').requireIdx([1])
 		stripWall = addEffect('disco')
 		stripWall.fx.numLeds = 57
@@ -115,9 +116,9 @@ function sendFullConfig() {
 	console.log("Resending config to all clients")
     html = "<h3>Configuration</h3>"
     for(var idx = 0; idx < fxList.length; idx++) {
-        html += util.fxgroup(idx, fxList[idx].fx)
+        html += fxutil.fxgroup(idx, fxList[idx].fx)
     }
-	html += util.fxselect(fxNames, fxList)
+	html += fxutil.fxselect(fxNames, fxList)
     io.emit('fxConfigRead', html)
 }
 
@@ -167,7 +168,7 @@ io.on('connection', function(s) {
         fullDisco();
     } else {
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
-		if (true) { // only for ZCon
+		if (false) { // only for ZCon
 			// keep fxList[0] unchanged, as it holds state
 			fxList[1] = addEffect(fxNames[data])
 			fxList[2] = addEffect('slave', 'Slave1')
@@ -182,7 +183,7 @@ io.on('connection', function(s) {
   socket.on('fxColorRead', function(msg){
     data = { c: [] }
     for(var idx = 0; idx < colors.length; idx++) {
-        data.c[idx] = util.rgb2html(colors[idx])
+        data.c[idx] = fxutil.rgb2html(colors[idx])
     }
     socket.emit('fxColorRead', data)
   })
@@ -195,7 +196,7 @@ io.on('connection', function(s) {
     doCfgSave(socket, msg)
   })
 
-  socket.on('cfgDoLoad', function(msg){
+  socket.on('cfgDoLoad', async function(msg){
     doCfgLoad(socket, msg)
   })
 
@@ -274,7 +275,7 @@ function logD(obj) {
 }
 
 var cfgFilename = "ledstrip.conf"
-function doCfgSave(socket, msg) {
+async function doCfgSave(socket, msg) {
     console.log("Save triggered...")
     var config = {
         _comment: "Saved configurations for Ledstrip.js",
@@ -287,35 +288,36 @@ function doCfgSave(socket, msg) {
             cfg: fxCfg,
         }
     }
-    var p=Q.nfcall(fs.writeFile, cfgFilename, JSON.stringify(config, null, 4), {encoding: 'utf-8'})
-    p.fail(function () {
-        console.log("Failed to write config file " + cfgFilename)
-        socket.emit("toast", "Failed to write config")
-    })
-    p.then(function () {
+	let writeFile = util.promisify(fs.writeFile)
+	try {
+        await writeFile(cfgFilename, JSON.stringify(config, null, 4), {encoding: 'utf-8'})
         socket.emit("toast", "Config saved")
-    })
+	} catch (error) {
+        console.log("Failed to write config file " + cfgFilename + ": " + error)
+        socket.emit("toast", "Failed to write config")
+	}
 }
 
-function doCfgLoad(socket, msg) {    
+async function doCfgLoad(socket, msg) {    
     console.log("Load triggered...")
-    var p=Q.nfcall(fs.readFile, cfgFilename, {encoding: 'utf-8'})
-    p.fail(function () {
-        console.log("Failed to read config file " + cfgFilename)
-        socket && socket.emit("toast", "Failed to read config")
-    })
-    p.then(function (data) {
+	let readFile = util.promisify(fs.readFile)
+	try {
+		let data = await readFile(cfgFilename, {encoding: 'utf-8'})
         var config = JSON.parse(data)
-        fxList = []
+        fxList.length = 0
         for(var i = 0; i < config.fxList.length; i++) {
             var fx = addEffect(config.fxList[i].name)
             var cfg = config.fxList[i].cfg
             fx.fx.loadConfigData(cfg)
             fxList.push(fx)
         }
+		console.log("Config loaded: " + fxList.length + " effects")
         sendFullConfig()
         socket && socket.emit("toast", "Config loaded")
-    })
+	} catch (error) {
+        console.log("Failed to read config file " + cfgFilename + ": " + error)
+        socket && socket.emit("toast", "Failed to read config")
+    }
 }
 
 // used by renderColors() and renderAllColors()
@@ -325,7 +327,7 @@ function renderAllColors() {
 	for(idx = fxList.length-1; idx >= 0; idx--) {
 		if (fxList[idx] === undefined) {
 			logD("renderAllColors: undefined fx[" + idx + "], default to black")
-			tempColors[idx] = util.mergeColors(NUM_LEDS)
+			tempColors[idx] = fxutil.mergeColors(NUM_LEDS)
 			continue
 		}
 		var inputIdxList = fxList[idx].fx.getInputIndexes()    
@@ -334,10 +336,10 @@ function renderAllColors() {
 			var inputIdx = inputIdxList[i]
 			if (inputIdx == idx) {
 				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
+				tempColors[inputIdx] = fxutil.mergeColors(NUM_LEDS)
 			} else if (tempColors[inputIdx] === undefined) {
 				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> not defined yet, use black (effects may only use inputs deeper down in the stack)")
-				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
+				tempColors[inputIdx] = fxutil.mergeColors(NUM_LEDS)
 			}
 			inputColors[i] = tempColors[inputIdx]
 			logD("inputColors now defined:")
@@ -351,7 +353,7 @@ function renderAllColors() {
 function renderColors() {
     tempColors = []
 	renderAllColors()
-    return util.mergeColors(NUM_LEDS, tempColors[0])
+    return fxutil.mergeColors(NUM_LEDS, tempColors[0])
 }
 
 
@@ -378,7 +380,7 @@ function startRendering() {
             process.exit(1)
         }
         for(var i=0; i<NUM_LEDS; i++) { 
-            pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+            pixelData[i] = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
         }
         ws281x.render(pixelData)
         
@@ -408,7 +410,7 @@ function fullDisco() {
 console.log('Press <ctrl>+C to exit.')
 
 
-if (true) {
+if (false) {
     // only for ZCon
     fxList[0] = addEffect('fx_rfid').requireIdx([1])
     fxList[1] = addEffect('fire')
