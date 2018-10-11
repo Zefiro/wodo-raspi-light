@@ -24,6 +24,7 @@
     "rpi-gpio": "*",
     "serialport": "*",
     "socket.io": "*",
+    "socket.io-client": "*",
     "clone": "*",
     "axios": "*"
   }

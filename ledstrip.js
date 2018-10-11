@@ -9,12 +9,53 @@ const io = require('socket.io')(http, { })
 const fxutil = require('./fx/fx_util')
 const util = require('util')
 const dict = require("dict")
+const cluster = require('./cluster')()
 
 const TARGET_FPS = 50
 
-const NUM_LEDS = parseInt(process.argv[2], 10) || 50
 const fxList = []
-var colors = new Array(NUM_LEDS)
+var colors = new Array()
+
+const scenarios = [
+	{
+		name: 'regalbrett',
+		cluster: {
+			type: 'server',
+		},
+		ledCount: 98,
+		canvasSize: 148,
+	}, {
+		name: 'regalbrett2',
+		cluster: {
+			type: 'client',
+			url: 'http://regalbrett.dyn.cave.zefiro.de/',
+			offset: 98,
+			reverse: true,
+		},
+		ledCount: 50,
+		canvasSize: 148,
+	}, {
+		name: 'zcon',
+		ledCount: 50,
+		canvasSize: 50,
+	}
+]
+
+const config = function() {
+	for(let i = 0; i < scenarios.length; i++) {
+		if (scenarios[i].name == process.argv[2]) {
+			var scenario = scenarios[i]
+			break
+		}
+	}
+	if (!scenario) {
+		console.log("Missing or unknown scenario '" + process.argv[2] + "', please choose one of:")
+		scenarios.forEach(scenario => console.log(scenario.name))
+		process.exit(1)
+	}
+	return scenario
+}()
+
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, merge, combine, shippo
@@ -25,7 +66,7 @@ const variables = dict()
 
 logDActivated = false
 
-ws281x.init(NUM_LEDS, { "invert": 1, "frequency": 400000 } )
+ws281x.init(config.ledCount, { "invert": 1, "frequency": 400000 } )
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', function () {
@@ -90,6 +131,7 @@ app.get('/scenario/:sId', async function(req, res) {
      	console.log("Scenario not found: " + sId)
 		res.status(404).send('Scenario not found: ' + sId)
 	}
+	sendFullConfig()
 });
 
 app.get('/slave/:slaveId/:type', function(req, res) {
@@ -120,6 +162,7 @@ function sendFullConfig() {
     }
 	html += fxutil.fxselect(fxNames, fxList)
     io.emit('fxConfigRead', html)
+	cluster.updateConfig()
 }
 
 var latestClientId = 0;
@@ -137,6 +180,7 @@ io.on('connection', function(s) {
   socket.on('fxClientId', function(data){
     socket.emit('fxClientId', clientId)
   })
+  
   
   socket.on('fxConfigRead', function(data){
     sendFullConfig()
@@ -236,7 +280,7 @@ sendFullConfig
 
 var configManager = {
 	update: function() {
-	sendFullConfig();
+		sendFullConfig();
 	},
 	updateUsers: function() {
 		configManager.zconListRead(io, {})
@@ -255,11 +299,12 @@ var configManager = {
 
 function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
-    console.log("adding effect " + fxName + " as " + fxVarName + " (" + NUM_LEDS + ")")
-	effect = require('./fx/' + fxName)(NUM_LEDS, configManager, socket)
+    console.log("adding effect " + fxName + " as " + fxVarName + " (" + config.canvasSize + ")")
+	effect = require('./fx/' + fxName)(config.canvasSize, configManager, socket)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
+		varName: fxVarName,
         fx: effect,
 		requireIdx: function(idx) {
             this.fx._inputIndexes = Array.isArray(idx) ? idx : [idx]
@@ -327,7 +372,7 @@ function renderAllColors() {
 	for(idx = fxList.length-1; idx >= 0; idx--) {
 		if (fxList[idx] === undefined) {
 			logD("renderAllColors: undefined fx[" + idx + "], default to black")
-			tempColors[idx] = fxutil.mergeColors(NUM_LEDS)
+			tempColors[idx] = fxutil.mergeColors(config.canvasSize)
 			continue
 		}
 		var inputIdxList = fxList[idx].fx.getInputIndexes()    
@@ -336,10 +381,10 @@ function renderAllColors() {
 			var inputIdx = inputIdxList[i]
 			if (inputIdx == idx) {
 				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-				tempColors[inputIdx] = fxutil.mergeColors(NUM_LEDS)
+				tempColors[inputIdx] = fxutil.mergeColors(config.canvasSize)
 			} else if (tempColors[inputIdx] === undefined) {
 				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> not defined yet, use black (effects may only use inputs deeper down in the stack)")
-				tempColors[inputIdx] = fxutil.mergeColors(NUM_LEDS)
+				tempColors[inputIdx] = fxutil.mergeColors(config.canvasSize)
 			}
 			inputColors[i] = tempColors[inputIdx]
 			logD("inputColors now defined:")
@@ -353,14 +398,14 @@ function renderAllColors() {
 function renderColors() {
     tempColors = []
 	renderAllColors()
-    return fxutil.mergeColors(NUM_LEDS, tempColors[0])
+    return fxutil.mergeColors(config.canvasSize, tempColors[0])
 }
 
 
 
 
 
-var pixelData = new Uint32Array(NUM_LEDS)
+var pixelData = new Uint32Array(config.ledCount)
 var fps_lastDate = new Date()
 var fps_smoothed = 1000 / TARGET_FPS
 
@@ -375,11 +420,11 @@ function startRendering() {
         logD("Timer: render all colors")
         colors = renderColors()
         // set the colors
-        if (colors === undefined || colors.length != NUM_LEDS) {
+        if (colors === undefined || colors.length != config.canvasSize) {
             console.log("colors is undefined or of wrong length! Aborting!")
             process.exit(1)
         }
-        for(var i=0; i<NUM_LEDS; i++) { 
+        for(let i = 0; i < config.ledCount; i++) { 
             pixelData[i] = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
         }
         ws281x.render(pixelData)
@@ -418,7 +463,27 @@ if (false) {
     fxList[3] = addEffect('slave', 'Slave2')
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
-    doCfgLoad()
+//    doCfgLoad()
+	
+	fxList.length = 0
+	fxList[0] = addEffect('freeze').requireIdx([1])
+	fxList[1] = addEffect('rainbow').requireIdx([2])
+	fxList[1].fx._segment.start = 0
+	fxList[1].fx._segment.length = 25
+	fxList[1].fx._segment.start2 = 0
+/*
+	fxList[2] = addEffect('rainbow', 'rainbow2').requireIdx([3])
+	fxList[2].fx._segment.start = 25
+	fxList[2].fx._segment.length = 25
+	fxList[2].fx._segment.start2 = 25
+	fxList[2].fx._segment.reverse = true
+*/
 }
 
 startRendering()
+if (config.cluster && config.cluster.type == "server") {
+	cluster.initServer(io, configManager)
+}
+if (config.cluster && config.cluster.type == "client") {
+	cluster.initClient(io, configManager, config.cluster)
+}

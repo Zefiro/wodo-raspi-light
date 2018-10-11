@@ -4,6 +4,13 @@ module.exports = function(_numLeds, name) { return {
 
     // FX configuration
     numLeds: _numLeds,
+	_segment: {
+		fullLength: _numLeds, // number of LEDs in total, for animation computation
+		start: 0, // start index of this segment. 0 <= start <= fullLength
+		start2: 0,
+		length: _numLeds, // number of LEDs of this segment. 0 < length <= fullLength - start
+		reverse: false
+	},
     _inputIndexes: [],
 	lastColors: [],
 	frozen: false,
