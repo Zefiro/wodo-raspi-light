@@ -45,7 +45,7 @@ if (!Array.prototype.fill) {
     });
 }
 
-module.exports = function (numLeds, config, socket) {
+module.exports = function (layout, config, socket) {
     var slot = 1
     var cycle = 0
     var rev = 0
@@ -57,15 +57,10 @@ module.exports = function (numLeds, config, socket) {
     var self = {
         
         // FX configuration
-        pixels: Array(numLeds).fill({}),
-        _inputIndexes: [],
-        numLeds: numLeds,
+        pixels: Array(layout.fxLength).fill({}),
+        layout: layout,
         type: 'fire',
         color: 'red',
-
-        getInputIndexes: function () {
-            return this._inputIndexes
-        },
 
         getName: function () {
             return "Misan"
@@ -127,9 +122,8 @@ module.exports = function (numLeds, config, socket) {
 
 
         renderColors: function (inputColors) {
-            var numLeds = this.numLeds
             console.log(audioData)
-            audio = audioData.slice(0, numLeds)
+            audio = audioData.slice(0, self.layout.fxLength)
             if (Math.random() * 10 | 0 == 0) {
                 console.log(audio)
             }

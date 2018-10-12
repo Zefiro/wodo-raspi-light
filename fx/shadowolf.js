@@ -1,11 +1,9 @@
 var util = require('./fx_util')
 
-module.exports = function(numLeds, configManager) { return {
+module.exports = function(layout, configManager) { return {
 
     // FX configuration
-	_fps: 30,
-	_inputIndexes: [],
-	_numLeds: numLeds,
+	layout: layout,
 
     _fadeOnTime:  5000,
 	_lastTime: 0,
@@ -14,10 +12,6 @@ module.exports = function(numLeds, configManager) { return {
 	_pulsationSpeed: 3000,
 
 	
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
-    
     getName: function() {
         return "shadowolf"
     },
@@ -47,36 +41,36 @@ module.exports = function(numLeds, configManager) { return {
 	},
 
 	saveConfigData: function() {
-		return { speed: this._speed, len: this.numLeds, _offset: this._offset, cyclelen: this._cyclelen }
+		return { speed: this._speed, _offset: this._offset, cyclelen: this._cyclelen }
 	},
 	
 	loadConfigData: function(data) {
+		// old value 'len': deprecated, not used anymore
 		this._speed = data.speed
-		this.numLeds = data.len
 		this._offset = data._offset
 		this._cyclelen = data.cyclelen
 	},
 
-    renderColors: function(inputColors, variables) {
+    renderColors: function(canvas, variables) {
 		var timeMs = Date.now() - this._lastTime;
-		colors = []
 		console.log(this._mode)
-		for (var i = 0; i < this.numLeds; i++) {
+		// TODO doesn't respect 'layout' (canvasStart, reverse)
+		for (var i = 0; i < this.layout.fxLength; i++) {
 			switch (this._mode) {
 				case 0:
-				   colors[i] = { r: 0, g: 0, b: 0 };
+				   canvas[i] = { r: 0, g: 0, b: 0 };
 				   break;
 				case 1:
-				   var ledPos = Math.abs(i - (this.numLeds / 2))
-				   var ledTimeDiff = this._travelSpeed * (ledPos / (this.numLeds / 2))
+				   var ledPos = Math.abs(i - (this.layout.fxLength / 2))
+				   var ledTimeDiff = this._travelSpeed * (ledPos / (this.layout.fxLength / 2))
 				   var localTimeMs = timeMs - ledTimeDiff
 				   if (timeMs < 0) {
-					   colors[i] = { r: 0, g: 0, b: 0 };
+					   canvas[i] = { r: 0, g: 0, b: 0 };
 				   } else if (localTimeMs < this._fadeOnTime) {
     				    var percent = 100 * localTimeMs / this._fadeOnTime;
-						colors[i] = util.mapColor({ r: 0, g: 0, b: 0 }, { r: 200, g: 150, b: 0 }, percent);				   
+						canvas[i] = util.mapColor({ r: 0, g: 0, b: 0 }, { r: 200, g: 150, b: 0 }, percent);				   
 				    } else {
-					   colors[i] = { r: 200, g: 150, b: 0 };
+					   canvas[i] = { r: 200, g: 150, b: 0 };
 					   if (i == 0) {
 						   this._mode = 2
 					   }
@@ -85,24 +79,24 @@ module.exports = function(numLeds, configManager) { return {
 				case 2:
 					var timeLoop = (timeMs % this._pulsationSpeed);
 					timeLoop = timeLoop > this._pulsationSpeed / 2 ? this._pulsationSpeed - timeLoop : timeLoop;
-					colors[i] = util.mapColor({ r: 200, g: 150, b: 0 }, { r: 170, g: 80, b: 0 }, 100 * timeLoop / (this._pulsationSpeed / 2));
+					canvas[i] = util.mapColor({ r: 200, g: 150, b: 0 }, { r: 170, g: 80, b: 0 }, 100 * timeLoop / (this._pulsationSpeed / 2));
 				   break;
 				case 3:
-					var ledPos = Math.abs(i - (this.numLeds / 2))
-				   var ledTimeDiff = this._travelSpeed * (1 - ledPos / (this.numLeds / 2))
+					var ledPos = Math.abs(i - (this.layout.fxLength / 2))
+				   var ledTimeDiff = this._travelSpeed * (1 - ledPos / (this.layout.fxLength / 2))
 				   var localTimeMs = timeMs - ledTimeDiff
 				   if (timeMs < 0) {
-					   colors[i] = { r: 200, g: 150, b: 0 };
+					   canvas[i] = { r: 200, g: 150, b: 0 };
 				   } else if (localTimeMs < this._fadeOnTime) {
     				    var percent = 100 * localTimeMs / this._fadeOnTime;
-						colors[i] = util.mapColor({ r: 200, g: 150, b: 0 }, { r: 0, g: 0, b: 0 }, percent);				   
+						canvas[i] = util.mapColor({ r: 200, g: 150, b: 0 }, { r: 0, g: 0, b: 0 }, percent);				   
 				    } else {
-					   colors[i] = { r: 0, g: 0, b: 0 }
+					   canvas[i] = { r: 0, g: 0, b: 0 }
 				    }
 				   break;
 			}
 		}
-    	return colors
+    	return canvas
     },
     
 }}

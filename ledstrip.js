@@ -16,13 +16,27 @@ const TARGET_FPS = 50
 const fxList = []
 var colors = new Array()
 
+/* TODO
+ - led-strip längen verifizieren
+ - io.emit renaming so daß Richtung eindeutig wird (und der server nicht den client mittriggert)
+ - io.emit nur an browser-clients, nicht an cluster-clients (bzw der sollte das alles entsprechend ignorieren)
+ - Änderung Server -> Änderung Browser -> Re-Triggering Änderung Server? prüfen, ändern
+ - warum tat cluster-client offsetberechnung nicht?
+ - interfaceänderung in den anderen effekten umsetzen
+   - layout statt NUM_LEDS
+   - nur ein input für colors, den gesamten Canvas. Und den ggf. nur teilweise bespielen
+   - effekte basierend auf Delta-Date()
+
+*/
+
+
 const scenarios = [
 	{
 		name: 'regalbrett',
 		cluster: {
 			type: 'server',
 		},
-		ledCount: 98,
+		ledCount: 96,
 		canvasSize: 148,
 	}, {
 		name: 'regalbrett2',
@@ -32,7 +46,7 @@ const scenarios = [
 			offset: 98,
 			reverse: true,
 		},
-		ledCount: 50,
+		ledCount: 38,
 		canvasSize: 148,
 	}, {
 		name: 'zcon',
@@ -58,8 +72,8 @@ const config = function() {
 
 
 // available effects for the user to select
-// Unfinished Effects: dmx, transpose, merge, combine, shippo
-const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'misan']
+// Unfinished Effects: dmx, transpose, shippo, misan
+const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 const variables = dict()
@@ -89,19 +103,19 @@ app.get('/scenario/:sId', async function(req, res) {
 	console.log("Scenario requested: " + sId)
 	if (sId == "alarm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('alarm')
 		res.send('Alarm triggered')
 	} else if (sId == "alarm2") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
 		res.send('Alarm2 triggered')
 	} else if (sId == "calm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('rainbow')
         fxList[1].fx.len = 98
         fxList[1].fx.cyclelen = 600
@@ -110,7 +124,7 @@ app.get('/scenario/:sId', async function(req, res) {
 		res.send('Calming down...')
 	} else if (sId == "disco") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze').requireIdx([1])
+        fxList[0] = addEffect('freeze')
 		stripWall = addEffect('disco')
 		stripWall.fx.numLeds = 57
 		stripWindow = addEffect('disco')
@@ -170,8 +184,6 @@ function getNewClientId() {
 	return ++latestClientId
 }
 
-var socket = {}
-
 io.on('connection', function(s) {
   socket = s
   var clientId = getNewClientId()
@@ -207,17 +219,16 @@ io.on('connection', function(s) {
 
   socket.on('setFx', function(data) {
     console.log("setFx("+data+")")
-    // TODO only for "Regalbrett"
-    if (false && fxNames[data] === "disco") {
+    if (config.name == "regalbrett" && fxNames[data] === "disco") {
         fullDisco();
     } else {
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
-		if (false) { // only for ZCon
+		if (config.name == "zcon") {
 			// keep fxList[0] unchanged, as it holds state
 			fxList[1] = addEffect(fxNames[data])
 			fxList[2] = addEffect('slave', 'Slave1')
 		} else {
-			fxList[0] = addEffect('freeze').requireIdx([1])
+			fxList[0] = addEffect('freeze')
 			fxList[1] = addEffect(fxNames[data])
 		}
     }
@@ -300,16 +311,26 @@ var configManager = {
 function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
     console.log("adding effect " + fxName + " as " + fxVarName + " (" + config.canvasSize + ")")
-	effect = require('./fx/' + fxName)(config.canvasSize, configManager, socket)
+	let layout = {
+		// size of the full canvas (i.e. the array of calculated colors, which is used for other effects and finally to drive the LEDs)
+		canvasSize: config.canvasSize,
+		// size of the effect calculation. May differ from the canvas size
+		fxSize: config.canvasSize,
+		// size of the effect to be calculated. May be smaller than effectSize
+		fxLength: config.ledCount,
+		// where on the effect calculation space the actual effect subset should be started
+		fxStart: 0,
+		// where on the canvas to start placing the effect
+		canvasStart: 0,
+		// whether placement of the effect on the canvas should be done reversed
+		reverse: false,
+	}
+	effect = require('./fx/' + fxName)(layout, configManager)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
 		varName: fxVarName,
         fx: effect,
-		requireIdx: function(idx) {
-            this.fx._inputIndexes = Array.isArray(idx) ? idx : [idx]
-            return this
-        },
     }
 }
 
@@ -365,40 +386,18 @@ async function doCfgLoad(socket, msg) {
     }
 }
 
-// used by renderColors() and renderAllColors()
-var tempColors = []
-
-function renderAllColors() {
+function renderColors() {
+    let canvas = fxutil.mergeColors(config.canvasSize)
 	for(idx = fxList.length-1; idx >= 0; idx--) {
 		if (fxList[idx] === undefined) {
-			logD("renderAllColors: undefined fx[" + idx + "], default to black")
-			tempColors[idx] = fxutil.mergeColors(config.canvasSize)
+			logD("renderColors: undefined fx[" + idx + "], ignoring")
 			continue
 		}
-		var inputIdxList = fxList[idx].fx.getInputIndexes()    
-    	var inputColors = []
-		for(var i = 0; i < inputIdxList.length; i++ ) {
-			var inputIdx = inputIdxList[i]
-			if (inputIdx == idx) {
-				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-				tempColors[inputIdx] = fxutil.mergeColors(config.canvasSize)
-			} else if (tempColors[inputIdx] === undefined) {
-				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> not defined yet, use black (effects may only use inputs deeper down in the stack)")
-				tempColors[inputIdx] = fxutil.mergeColors(config.canvasSize)
-			}
-			inputColors[i] = tempColors[inputIdx]
-			logD("inputColors now defined:")
-	//        console.log(inputColors)
-		}
-		logD("renderAllColors: calling fx[" + idx + "] '"+fxList[idx].fx.getName()+"' with inputs: " + inputIdxList)
-		tempColors[idx] = fxList[idx].fx.renderColors(inputColors, variables)
+		logD("renderColors: calling fx[" + idx + "] '" + fxList[idx].fx.getName())
+		canvas = fxList[idx].fx.renderColors(canvas, variables)
 	}
-}
-
-function renderColors() {
-    tempColors = []
-	renderAllColors()
-    return fxutil.mergeColors(config.canvasSize, tempColors[0])
+	
+    return fxutil.mergeColors(config.canvasSize, canvas)
 }
 
 
@@ -409,7 +408,6 @@ var pixelData = new Uint32Array(config.ledCount)
 var fps_lastDate = new Date()
 var fps_smoothed = 1000 / TARGET_FPS
 
-// only add effects and start rendering, when socket is loaded. pass socket to effect module
 function startRendering() {
     var timerId = setInterval(function () {
         fps_currentDate = new Date()
@@ -438,18 +436,14 @@ function startRendering() {
 
 // scene setting for disco effect on 'Regalbrett'
 function fullDisco() {
-    stripWall = addEffect('disco')
-    stripWall.fx.numLeds = 57
-    stripWindow = addEffect('disco')
-    stripWindow.fx.numLeds = 41
-    stripMerge = addEffect('merge')
-    stripMerge.fx.s_indexes = [ 2, 3 ]
-    stripMerge.fx.s_length = stripWindow.fx.numLeds
-    stripMerge.fx.s_start = stripWall.fx.numLeds
-
-    fxList[1] = stripMerge
-    fxList[2] = stripWall
-    fxList[3] = stripWindow
+    stripWall = addEffect('disco', 'disco1')
+    stripWall.fx.layout.canvasStart = 0
+    stripWall.fx.layout.fxLength = 57
+    stripWindow = addEffect('disco', 'disco2')
+    stripWall.fx.layout.canvasStart = 57
+    stripWall.fx.layout.fxLength = 41
+    fxList[1] = stripWall
+    fxList[2] = stripWindow
 }
 
 console.log('Press <ctrl>+C to exit.')
@@ -457,22 +451,22 @@ console.log('Press <ctrl>+C to exit.')
 
 if (false) {
     // only for ZCon
-    fxList[0] = addEffect('fx_rfid').requireIdx([1])
+    fxList[0] = addEffect('fx_rfid')
     fxList[1] = addEffect('fire')
     fxList[2] = addEffect('slave', 'Slave1')
     fxList[3] = addEffect('slave', 'Slave2')
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
-//    doCfgLoad()
-	
+    doCfgLoad()
+/*	
 	fxList.length = 0
-	fxList[0] = addEffect('freeze').requireIdx([1])
-	fxList[1] = addEffect('rainbow').requireIdx([2])
+	fxList[0] = addEffect('freeze')
+	fxList[1] = addEffect('rainbow')
 	fxList[1].fx._segment.start = 0
 	fxList[1].fx._segment.length = 25
 	fxList[1].fx._segment.start2 = 0
 /*
-	fxList[2] = addEffect('rainbow', 'rainbow2').requireIdx([3])
+	fxList[2] = addEffect('rainbow', 'rainbow2')
 	fxList[2].fx._segment.start = 25
 	fxList[2].fx._segment.length = 25
 	fxList[2].fx._segment.start2 = 25
@@ -487,3 +481,5 @@ if (config.cluster && config.cluster.type == "server") {
 if (config.cluster && config.cluster.type == "client") {
 	cluster.initClient(io, configManager, config.cluster)
 }
+
+

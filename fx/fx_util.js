@@ -40,6 +40,15 @@ module.exports = {
         result = result.slice(0, targetLength)
 		return result
     },
+	
+	setCanvasColors: function(canvas, layout, idx, colors) {
+		for(let i = 0; i < colors.length; i++) {
+			let targetIdx = layout.canvasStart + (layout.reverse ? layout.fxLength - idx - i - 1 : idx + i)
+			if (targetIdx >= layout.canvasStart && targetIdx < layout.canvasStart + layout.fxLength) {
+				canvas[targetIdx] = colors[i]
+			}
+		}
+	},
     
     rgb2html: function(col) {
         return "#" + ((1 << 24) + (col.r << 16) + (col.g << 8) + col.b).toString(16).slice(1);

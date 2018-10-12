@@ -1,14 +1,10 @@
 var util = require('./fx_util')
 
-module.exports = function(_numLeds) { return {
+module.exports = function(layout) { return {
 
     // FX configuration
-    numLeds: _numLeds,
+    layout: layout,
 	color: { r: 0, g: 0, b: 0 },
-    
-    getInputIndexes: function() {
-        return [2]
-    },
     
     getName: function() {
         return "Displays a single color based on DMX"

@@ -1,23 +1,11 @@
 var util = require('./fx_util')
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(layout, name) { return {
 
     // FX configuration
-    numLeds: _numLeds,
-	_segment: {
-		fullLength: _numLeds, // number of LEDs in total, for animation computation
-		start: 0, // start index of this segment. 0 <= start <= fullLength
-		start2: 0,
-		length: _numLeds, // number of LEDs of this segment. 0 < length <= fullLength - start
-		reverse: false
-	},
-    _inputIndexes: [],
+	layout: layout,
 	lastColors: [],
 	frozen: false,
-    
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
     
     getName: function() {
         return "Freezes a color"
@@ -44,25 +32,31 @@ module.exports = function(_numLeds, name) { return {
     
 	loadConfigData: function(data) {
 		this.frozen = data.frozen
-		this._inputIndexes = data._inputIndexes
 		if (data.lastColors) {
 		    this.lastColors = data.lastColors
 		}
 	},
 	
 	saveConfigData: function() {
-	    var cfg = { frozen: this.frozen, _inputIndexes: this._inputIndexes }
+	    var cfg = { frozen: this.frozen }
 	    if (this.frozen) {
 	        cfg.lastColors = this.lastColors
 	    }
 		return cfg
 	},
     
-    renderColors: function(inputColors) {
-        if (!this.frozen) {
-			this.lastColors = inputColors[0]
+    renderColors: function(canvas) {
+        if (this.frozen) {
+			// layout changed since frozen?
+			if (this.layout.fxLength != this.lastColors.length) {
+				console.log("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
+				this.lastColors = util.mergeColors(this.layout.fxLength, this.lastColors)
+			}
+			return util.mergeColors(this.layout.canvasSize, canvas, this.lastColors, this.layout.canvasStart)
+		} else {
+			this.lastColors = canvas.slice(this.layout.canvasStart, this.layout.fxLength)
+			return canvas
 		}
-    	return util.mergeColors(this.numLeds, this.lastColors)
     },
     
 }}

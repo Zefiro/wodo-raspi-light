@@ -1,21 +1,15 @@
 var util = require('./fx_util')
 
-module.exports = function(numLeds, name) { return {
+module.exports = function(layout, name) { return {
 
     // FX configuration
-	_fps: 30,
-    _numLeds: numLeds,
-	_cycleStart: 0,
-	_shift: 0,
+    layout: layout,
+	_startTime: new Date(),
 	_speed: 2,
 	_duration: 1000,
 	_color1: { r: 0, g: 0, b: 0 },
 	_color2: { r: 255, g: 0, b: 0 },
 	
-    getInputIndexes: function() {
-        return []
-    },
-    
     getName: function() {
         return "alarm"
     },
@@ -40,35 +34,32 @@ module.exports = function(numLeds, name) { return {
 	},
 
 	saveConfigData: function() {
-		return { numLeds: this._numLeds, speed: this._speed, duration: this._duration, shift: this._shift, color1: this._color1, color2: this._color2, relCycleStart: this._cycleStart - Date.now() }
+		return { speed: this._speed, duration: this._duration, color1: this._color1, color2: this._color2, anim: { deltaT: new Date() - this._startTime } }
 	},
 	
 	loadConfigData: function(data) {
+		// old value 'shift': deprecated, not used anymore
 		this._speed = data.speed
 		this._duration = data.duration
-		this._shift = data.shift
 		this._color1 = data.color1
 		this._color2 = data.color2
-		this._cycleStart = data.relCycleStart + Date.now()
+		if ('anim' in data) {
+			this._startTime = new Date() -  data.anim.deltaT
+		} else {
+    		// previously relCycleStart was used with a different calculation -> too lazy to write converter, just ignore
+			this._startTime = new Date()
+		}
 	},
-
-    renderColors: function(inputColors) {
-		colors = []
-		var msec = Date.now() - this._cycleStart
-		if (msec >= this._duration) {
-			this._cycleStart = Date.now()
-			msec = 0
+	
+    renderColors: function(canvas) {
+		let deltaT = (new Date() - this._startTime) % this._duration
+		for (var i = 0; i < this.layout.fxLength; i++) {
+			var splitT = (deltaT + i * this._speed) % this._duration
+			let col = (splitT < this._duration / 2) ? this._color1 : this._color2
+			let targetIdx = this.layout.canvasStart + (this.layout.reverse ? this.layout.fxLength - i - 1 : i)
+			canvas[targetIdx] = col
 		}
-		for (var i = 0; i < this._numLeds; i++) {
-			col = this._color1
-			var msec2 = (msec + i * this._speed + this._shift) % this._duration
-			if (msec2 >= (this._duration / 2)) {
-				col = this._color2
-			}
-			colors[i] = col
-		}
-		this.shift++
-    	return colors
+    	return canvas
     },
     
 }}

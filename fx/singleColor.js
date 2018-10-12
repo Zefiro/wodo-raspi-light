@@ -1,21 +1,16 @@
 var util = require('./fx_util')
 var dict = require("dict")
 
-module.exports = function(numLeds, configManager) { return {
+module.exports = function(layout, configManager) { return {
 
     // FX configuration
-	_inputIndexes: [],
-	_numLeds: numLeds,
+	layout: layout,
 	_configManager: configManager,
     
 	variables: dict({
 		color: util.rgb(0, 0, 0),
 	}),
 
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
-    
     getName: function() {
         return "Displays a single color"
     },
@@ -93,13 +88,12 @@ function "+prefix+"_singleColor() {\n\
 		this.variables.set('color', data.color)
 	},
     
-    renderColors: function(inputColors, variables) {
-        var colors = []
+    renderColors: function(canvas, variables) {
 		var color = this.variables.get('color')
-		for(var idx=0; idx < this._numLeds; idx++) {
-			colors[idx] = color
+		for(var i = 0; i < this.layout.fxLength; i++) {
+			canvas[this.layout.canvasStart + i] = color
 		}
-    	return colors
+    	return canvas
     },
     
 }}

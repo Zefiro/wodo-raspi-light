@@ -7,7 +7,6 @@ module.exports = function() {
 var self = {
 	ioServer: null,
 	ioClient: null,
-	url: null,
 	// config data when we act as client
 	client: {
 		connected: false
@@ -17,7 +16,7 @@ var self = {
 		clientSocket: null,
 	},
 	
-	initServer: function(ioServer, configManager, url) {
+	initServer: function(ioServer, configManager) {
 		self.ioServer = ioServer
 		self.configManager = configManager
 		console.log("ClusterD: ready for clients")
@@ -40,9 +39,9 @@ var self = {
 	initClient: function(ioServer, configManager, clusterConfig) {
 		self.clusterConfig = clusterConfig
 		self.configManager = configManager
-		console.log("ClusterC: trying to connect to " + clusterConfig.url)
+		console.log("ClusterC: trying to connect to " + self.clusterConfig.url)
 
-		self.ioClient = clientFactory(url)
+		self.ioClient = clientFactory(self.clusterConfig.url)
 		self.ioClient.on('connect', self.onConnect);
 		self.ioClient.on('event', self.onEvent);
 		self.ioClient.on('disconnect', self.onDisconnect);
@@ -64,18 +63,18 @@ var self = {
 	
 	onConnect: function() {
 		self.client.connected = true
-		console.log("Cluster: Connected as client")
+		console.log("ClusterC: Connected as client")
 		self.ioClient.emit('cluster-subscribe', '')
 	},
 
 	onEvent: function(data) {
-		console.log("Cluster: got an event:")
+		console.log("ClusterC: got an event:")
 		console.log(data)
 	},
 
 	onDisconnect: function() {
 		self.client.connected = false
-		console.log("Cluster: got disconnected")
+		console.log("ClusterC: got disconnected")
 	},
 	
 	// Sends the current config to the client

@@ -2,10 +2,9 @@ const util = require('./fx_util')
 const dict = require("dict")
 const axios = require('axios');
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(layout, name) { return {
 
     // FX configuration
-    _inputIndexes: [],
 	_pushInterval: 20 * 1000,
 	_pushErrorCount: 0,
 	_maxPushErrorCount: 5,
@@ -17,10 +16,6 @@ module.exports = function(_numLeds, name) { return {
 		lastPushed: 0,
 	}),
 	
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
-    
     getName: function() {
         return "External Slave"
     },
@@ -83,9 +78,9 @@ module.exports = function(_numLeds, name) { return {
         })
 	},
 
-    renderColors: function(inputColors, variables) {
+    renderColors: function(canvas, variables) {
 		this._pushToSlave()
-    	return inputColors
+    	return canvas
     },
     
 }}
