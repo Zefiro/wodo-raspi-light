@@ -93,7 +93,7 @@ module.exports = {
 			html += '<option value="' + idx + '"'+selected+'>' + fxNames[idx] + '</option>'
 		}
 		html += '</select></div>'
-		html += '<script>"use strict";$("#addFxSelector").change(function(){console.log("addFxSelector"+$("#addFxSelector").val());socket.emit("setFx",$("#addFxSelector").val())})</script>'
+		html += '<script>"use strict";$("#addFxSelector").change(function(){console.log("addFxSelector"+$("#addFxSelector").val());socket.emit("browser-setFx",$("#addFxSelector").val())})</script>'
 		return html
 	},
 	
@@ -199,12 +199,12 @@ $(function(){\n"
 		html += "\
 	"+prefix+"noUpdate=false;\n\
 	fxConfigUpdaters["+fxIdx+"]=function(cfg){\n\
-		"+prefix+"_noUpdate=true;\n\
-		console.log('fxConfigWrite->" + metaconfig.name + " got cfg: ');\n\
+		"+prefix+"noUpdate=true;\n\
+		console.log('browserD-sendConfigUpdate->" + metaconfig.name + " got cfg: ');\n\
 		console.log(cfg);\n"
 		html += scriptupdate.join("")
 		html += "\
-		"+prefix+"_noUpdate=false;\n\
+		"+prefix+"noUpdate=false;\n\
 	}\n\
 })\n\
 function "+prefix+"valueChange() {\n\
@@ -213,7 +213,7 @@ function "+prefix+"valueChange() {\n\
 	html += scriptwrite.join("")
 	html += "\
 	var cfg = [{fx:"+fxIdx+",id:0,cfg:{"+scriptconfig.join(',')+"}}];\n\
-	socket.emit('fxConfigWrite', cfg);\n\
+	socket.emit('browser-sendConfigUpdate', cfg);\n\
 }\n\
 </script>\n"
 		return html

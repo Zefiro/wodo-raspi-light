@@ -17,15 +17,11 @@ const fxList = []
 var colors = new Array()
 
 /* TODO
- - led-strip längen verifizieren
  - io.emit renaming so daß Richtung eindeutig wird (und der server nicht den client mittriggert)
  - io.emit nur an browser-clients, nicht an cluster-clients (bzw der sollte das alles entsprechend ignorieren)
  - Änderung Server -> Änderung Browser -> Re-Triggering Änderung Server? prüfen, ändern
  - warum tat cluster-client offsetberechnung nicht?
- - interfaceänderung in den anderen effekten umsetzen
-   - layout statt NUM_LEDS
-   - nur ein input für colors, den gesamten Canvas. Und den ggf. nur teilweise bespielen
-   - effekte basierend auf Delta-Date()
+ - Freeze auf Cluster-Client "springt"
 
 */
 
@@ -37,17 +33,17 @@ const scenarios = [
 			type: 'server',
 		},
 		ledCount: 96,
-		canvasSize: 148,
+		canvasSize: 136,
 	}, {
 		name: 'regalbrett2',
 		cluster: {
 			type: 'client',
 			url: 'http://regalbrett.dyn.cave.zefiro.de/',
-			offset: 98,
+			offset: 96,
 			reverse: true,
 		},
-		ledCount: 38,
-		canvasSize: 148,
+		ledCount: 40,
+		canvasSize: 136,
 	}, {
 		name: 'zcon',
 		ledCount: 50,
@@ -125,18 +121,7 @@ app.get('/scenario/:sId', async function(req, res) {
 	} else if (sId == "disco") {
 		fxList.length = 0
         fxList[0] = addEffect('freeze')
-		stripWall = addEffect('disco')
-		stripWall.fx.numLeds = 57
-		stripWindow = addEffect('disco')
-		stripWindow.fx.numLeds = 41
-		stripMerge = addEffect('merge')
-		stripMerge.fx.s_indexes = [ 2, 3 ]
-		stripMerge.fx.s_length = stripWindow.fx.numLeds
-		stripMerge.fx.s_start = stripWall.fx.numLeds
-
-		fxList[1] = stripMerge
-		fxList[2] = stripWall
-		fxList[3] = stripWindow
+		fullDisco()
 		res.send('Let\'s rock!')
 	} else if (sId == "load") {
 		doCfgLoad()
@@ -175,50 +160,44 @@ function sendFullConfig() {
         html += fxutil.fxgroup(idx, fxList[idx].fx)
     }
 	html += fxutil.fxselect(fxNames, fxList)
-    io.emit('fxConfigRead', html)
+    io.of('/browser').emit('browserD-sendConfig', html)
 	cluster.updateConfig()
 }
 
-var latestClientId = 0;
-function getNewClientId() {
-	return ++latestClientId
-}
+io.of('/browser').on('connection', (socket) => {
+  console.log('a user connected from ' + socket.client.conn.remoteAddress + ", socket.id=" + socket.id)
 
-io.on('connection', function(s) {
-  socket = s
-  var clientId = getNewClientId()
-  console.log('a user connected from ' + socket.client.conn.remoteAddress + ", clientId=" + clientId)
-
-  socket.on('fxClientId', function(data){
-    socket.emit('fxClientId', clientId)
+  socket.on('browser-subscribe', () => {
+	console.log("Identified as browser: socket.id=" + socket.id)
+    socket.emit('browserD-clientId', socket.id)
   })
   
   
-  socket.on('fxConfigRead', function(data){
+  socket.on('browser-requestReadConfig', (data) => {
     sendFullConfig()
   })
   
-  socket.on('zconListRead', function(data) {
+  socket.on('zconListRead', (data) => {
 	  configManager.zconListRead(socket, data)
   })
   
-  socket.on('fxConfigWrite', function(data){
+  socket.on('browser-sendConfigUpdate', (data) => {
     dataOut = []
     for(var idx = 0; idx < data.length; idx++) {
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
 		var fx = fxList[fxIdx].fx
-		// TODO compare ID if it's still an active effect, silently ignore otherwise
+		// TODO compare fx if it's still an active effect, silently ignore otherwise
 		fx.setConfigData(cfg)
-		dataOut.push({fx:fxIdx,id:0,clientId:clientId,cfg:cfg})
+		dataOut.push({fx: fxIdx, cfg: cfg})
     }
-    io.emit('fxConfigWrite', dataOut)
-	
-	console.log("Sent to clients:"); console.log(dataOut)
+	console.log("Got a config update from client.id=%s, sending out to all other clients:", socket.id); console.log(dataOut)
+	socket.broadcast.emit('browserD-sendConfigUpdate', dataOut)
+	cluster.updateConfig()
   })
 
-  socket.on('setFx', function(data) {
-    console.log("setFx("+data+")")
+  socket.on('browser-setFx', function(data) {
+    console.log("browser-setFx("+data+")")
     if (config.name == "regalbrett" && fxNames[data] === "disco") {
         fullDisco();
     } else {
@@ -235,23 +214,24 @@ io.on('connection', function(s) {
     sendFullConfig()
   })
 
-  socket.on('fxColorRead', function(msg){
+  socket.on('browser-requestPreview', function(msg){
     data = { c: [] }
     for(var idx = 0; idx < colors.length; idx++) {
         data.c[idx] = fxutil.rgb2html(colors[idx])
     }
-    socket.emit('fxColorRead', data)
+    socket.volatile.emit('browserD-sendPreview', data)
   })
 
-  socket.on('disconnect', function(){
-    console.log('user disconnected, clientId=' + clientId)
+  socket.on('disconnect', function(data){
+    console.log('user disconnected, client.id=' + socket.id)
+	console.log(data)
   })
 
-  socket.on('cfgDoSave', function(msg){
+  socket.on('browser-cfgDoSave', function(msg){
     doCfgSave(socket, msg)
   })
 
-  socket.on('cfgDoLoad', async function(msg){
+  socket.on('browser-cfgDoLoad', async function(msg){
     doCfgLoad(socket, msg)
   })
 

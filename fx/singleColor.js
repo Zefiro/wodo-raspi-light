@@ -52,7 +52,7 @@ $(function(){\n\
 	a=$('#"+prefix+"_color_blue');a.slider(o);a.slider('option','value',"+color.b+");\n\
 	"+prefix+"_noUpdate=false;\n\
 	fxConfigUpdaters["+idx+"]=function(cfg){\n\
-		console.log('fxConfigWrite->singleColor got cfg: ');\n\
+		console.log('browserD-sendConfigUpdate->singleColor got cfg: ');\n\
 		console.log(cfg);\n\
 		"+prefix+"_setColor(cfg.color)\n\
 	}\n\
@@ -64,7 +64,7 @@ function "+prefix+"_singleColor() {\n\
 	var green = parseInt($('#"+prefix+"_color_green').slider('option','value'));\n\
 	var blue = parseInt($('#"+prefix+"_color_blue').slider('option','value'));\n\
 	var cfg = [{fx:"+idx+",id:0,cfg:{color:{r: red, g: green, b: blue}}}];\n\
-	socket.emit('fxConfigWrite', cfg);\n\
+	socket.emit('browser-sendConfigUpdate', cfg);\n\
 }"
 	html += "</script>\n"
 		return html

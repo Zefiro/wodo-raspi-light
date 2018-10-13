@@ -60,6 +60,7 @@ module.exports = function(layout, name) { return {
 		else { pos -= 170; return { r: pos * 3, g: 255 - pos * 3, b: 0 } }
 	},
 	
+	// Todo dead code, move to separate effect?
 	posterize: function(col) {
 		col.r = col.r & 0xC0
 		col.g = col.g & 0xC0
@@ -77,8 +78,9 @@ module.exports = function(layout, name) { return {
 		for (let i = 0; i < this.layout.fxLength; i++) {
 			let colIdx = this._offset + (this._cyclelen ? 256 * (i + this.layout.fxStart) / this._cyclelen : 0)
 			colIdx = Math.floor(colIdx) % 256
+			if (colIdx < 0) colIdx += 256
 			let targetIdx = this.layout.canvasStart + (this.layout.reverse ? this.layout.fxLength - i - 1 : i)
-			canvas[targetIdx] = this.posterize(this._colorwheel(colIdx))
+			canvas[targetIdx] = this._colorwheel(colIdx)
 		}
     	return canvas
     },

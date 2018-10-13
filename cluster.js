@@ -21,7 +21,7 @@ var self = {
 		self.configManager = configManager
 		console.log("ClusterD: ready for clients")
 
-		self.ioServer.on('connection', function(s) {
+		self.ioServer.of('cluster').on('connection', function(s) {
 			s.on('disconnect', function(data){
 				if (self.server.clientSocket == s) {
 					self.server.clientSocket = null
@@ -41,7 +41,7 @@ var self = {
 		self.configManager = configManager
 		console.log("ClusterC: trying to connect to " + self.clusterConfig.url)
 
-		self.ioClient = clientFactory(self.clusterConfig.url)
+		self.ioClient = clientFactory(self.clusterConfig.url + '/cluster')
 		self.ioClient.on('connect', self.onConnect);
 		self.ioClient.on('event', self.onEvent);
 		self.ioClient.on('disconnect', self.onDisconnect);
@@ -50,11 +50,11 @@ var self = {
 			let fxList = self.configManager.fxList
 			fxList.length = 0
 			for(var i = 0; i < data.fxList.length; i++) {
-				var fx = self.configManager.addEffect(data.fxList[i].name).requireIdx([i+1])
+				var fx = self.configManager.addEffect(data.fxList[i].name)
 				var cfg = data.fxList[i].cfg
 				fx.fx.loadConfigData(cfg)
-				fx.fx._segment.start = self.clusterConfig.offset
-				fx.fx._segment.reverse = self.clusterConfig.reverse ? true : false
+				fx.fx.layout.fxStart = self.clusterConfig.offset
+				fx.fx.layout.reverse = self.clusterConfig.reverse ? true : false
 				fxList.push(fx)
 			}
 			self.configManager.update()
@@ -64,7 +64,7 @@ var self = {
 	onConnect: function() {
 		self.client.connected = true
 		console.log("ClusterC: Connected as client")
-		self.ioClient.emit('cluster-subscribe', '')
+		self.ioClient.emit('cluster-subscribe')
 	},
 
 	onEvent: function(data) {
@@ -79,7 +79,10 @@ var self = {
 	
 	// Sends the current config to the client
 	updateConfig: function() {
-		if (!self.server || self.server.clientSocket == null) return
+		if (!self.server || self.server.clientSocket == null) {
+			console.log("ClusterD: no client to send update to")
+			return
+		}
 		let fxList = self.configManager.fxList
 		data = {
 			fxList: []
@@ -92,6 +95,9 @@ var self = {
 			}
 		}
 		self.server.clientSocket.emit('cluster-update', data)
+//		console.log("ClusterD: Sending update")
+//		console.log(data)
+//		console.log(data.fxList[1].cfg)
 	}
     
 }
