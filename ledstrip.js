@@ -17,10 +17,7 @@ const fxList = []
 var colors = new Array()
 
 /* TODO
- - io.emit renaming so daß Richtung eindeutig wird (und der server nicht den client mittriggert)
- - io.emit nur an browser-clients, nicht an cluster-clients (bzw der sollte das alles entsprechend ignorieren)
- - Änderung Server -> Änderung Browser -> Re-Triggering Änderung Server? prüfen, ändern
- - warum tat cluster-client offsetberechnung nicht?
+ - Freeze: init() sorgt für Config-emit -> ändern
  - Freeze auf Cluster-Client "springt"
 
 */
@@ -154,14 +151,19 @@ http.listen(80, function(){
 })
 
 function sendFullConfig() {
-	console.log("Resending config to all clients")
-    html = "<h3>Configuration</h3>"
+	console.log("Resending full config to all clients")
+	let html = getFullConfigAsHtml()
+    io.of('/browser').emit('browserD-sendConfig', html)
+	cluster.updateConfig()
+}
+
+function getFullConfigAsHtml() {
+	let html = "<h3>Configuration</h3>"
     for(var idx = 0; idx < fxList.length; idx++) {
         html += fxutil.fxgroup(idx, fxList[idx].fx)
     }
 	html += fxutil.fxselect(fxNames, fxList)
-    io.of('/browser').emit('browserD-sendConfig', html)
-	cluster.updateConfig()
+	return html
 }
 
 io.of('/browser').on('connection', (socket) => {
@@ -174,7 +176,9 @@ io.of('/browser').on('connection', (socket) => {
   
   
   socket.on('browser-requestReadConfig', (data) => {
-    sendFullConfig()
+	console.log("Sending full config to " + socket.id)
+	let html = getFullConfigAsHtml()
+    socket.emit('browserD-sendConfig', html)
   })
   
   socket.on('zconListRead', (data) => {
@@ -216,7 +220,7 @@ io.of('/browser').on('connection', (socket) => {
 
   socket.on('browser-requestPreview', function(msg){
     data = { c: [] }
-    for(var idx = 0; idx < colors.length; idx++) {
+    for(var idx = 0; idx < config.ledCount; idx++) {
         data.c[idx] = fxutil.rgb2html(colors[idx])
     }
     socket.volatile.emit('browserD-sendPreview', data)

@@ -36,6 +36,23 @@ td.ledstrip {
 
 <script language="JavaScript"><!--
 
+window.addEventListener('error', function (evt) {
+    console.log("FATAL: uncaughtException: '" + evt.message + "' from " + evt.filename + ":" + evt.lineno);
+    console.log(evt); // has srcElement / target / etc
+	$.toast({
+		text: evt.message,
+		icon: 'error',
+		showHideTransition: 'slide', // fade, slide or plain
+		allowToastClose: true,
+		hideAfter: false,
+		stack: 5,
+		position: 'bottom-center',
+		textAlign: 'center',
+		loader: false,
+	});
+    evt.preventDefault();
+});
+
   var socket = io.connect('/browser');
   var clientId = undefined;
   
