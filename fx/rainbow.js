@@ -12,7 +12,7 @@ module.exports = function(layout, name) { return {
     _speed: 6000,
 	/** length (in LEDs) for a full colorwheel. 0=synchronous, all LEDs have the same color */
 	_cyclelen: 600,
-	_startTime: new Date(),
+	_startTime: new Date() - 111529, // start with a nice green
 	
     getName: function() {
         return "rainbow"
