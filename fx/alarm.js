@@ -54,7 +54,7 @@ module.exports = function(layout, name) { return {
     renderColors: function(canvas) {
 		let deltaT = (new Date() - this._startTime) % this._duration
 		for (var i = 0; i < this.layout.fxLength; i++) {
-			var splitT = (deltaT + i * this._speed) % this._duration
+			var splitT = (deltaT + (i + this.layout.fxStart) * this._speed) % this._duration
 			let col = (splitT < this._duration / 2) ? this._color1 : this._color2
 			let targetIdx = this.layout.canvasStart + (this.layout.reverse ? this.layout.fxLength - i - 1 : i)
 			canvas[targetIdx] = col

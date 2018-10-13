@@ -38,7 +38,7 @@ const scenarios = [
 		name: 'regalbrett2',
 		cluster: {
 			type: 'client',
-			url: 'http://regalbrett.dyn.cave.zefiro.de/',
+			url: 'http://regalbrett.dyn.cave.zefiro.de',
 			offset: 96,
 			reverse: true,
 		},

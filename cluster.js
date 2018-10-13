@@ -79,7 +79,10 @@ var self = {
 	
 	// Sends the current config to the client
 	updateConfig: function() {
-		if (!self.server || self.server.clientSocket == null) {
+		if (!self.ioServer) {
+			return
+		}
+		if (self.server.clientSocket == null) {
 			console.log("ClusterD: no client to send update to")
 			return
 		}
