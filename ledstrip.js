@@ -17,7 +17,8 @@ const fxList = []
 var colors = new Array()
 
 /* TODO
- - Freeze: init() sorgt für Config-emit -> ändern
+ - clusterC: show that we're a client and disable all input controls (or send them to the master?)
+ - clusterD: when we got a client, change canvas size automatically? and back? with a delay?
  - Freeze auf Cluster-Client "springt"
 
 */
@@ -179,6 +180,7 @@ io.of('/browser').on('connection', (socket) => {
 	console.log("Sending full config to " + socket.id)
 	let html = getFullConfigAsHtml()
     socket.emit('browserD-sendConfig', html)
+	cluster.updateBrowser()
   })
   
   socket.on('zconListRead', (data) => {
@@ -279,6 +281,9 @@ var configManager = {
 	},
 	updateUsers: function() {
 		configManager.zconListRead(io, {})
+	},
+	sendToBrowser: function(id, data) {
+	    io.of('/browser').emit(id, data)
 	},
 	variables: variables,
 	fxList: fxList,
@@ -463,7 +468,7 @@ if (config.cluster && config.cluster.type == "server") {
 	cluster.initServer(io, configManager)
 }
 if (config.cluster && config.cluster.type == "client") {
-	cluster.initClient(io, configManager, config.cluster)
+	cluster.initClient(configManager, config.cluster)
 }
 
 

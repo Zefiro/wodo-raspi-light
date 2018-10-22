@@ -66,7 +66,7 @@ window.addEventListener('error', function (evt) {
   console.log(socket)
 		clientId = data
 		console.log("Connected to server as client " + clientId)
-		$('#connectionStatus').html('(Connected as <span title="' + socket.id + '">client ' + clientId + '</span>)');
+		$('#connectionStatus').html('(<span title="Connected as ' + socket.id + '">Connected</span>)');
   })
 
   socket.on('connect', function(data){
@@ -107,7 +107,12 @@ window.addEventListener('error', function (evt) {
 		    updater(cfg)
 		}
     }
-  });
+  })
+  
+  socket.on('cluster-status', data => {
+    console.log("Cluster-status: " + data)
+	$('#clusterStatus').html(data)
+  })
 
 var color = ['#000000', '#100000', '#200000', '#300000'];
 var colorUpdateEnabled = false;
@@ -257,6 +262,9 @@ function doTap() {
 
 <h1 id="title">World Domination - Regalbrett</h1>
 <a href="/">Reload</a> <span id="connectionStatus">(connecting...)</span><br>
+<br>
+<span id="clusterStatus"></span>
+
 <!-- <a href="zcon.html">ZCon</a><br> -->
 
 <h2>Live Preview:</h2>
