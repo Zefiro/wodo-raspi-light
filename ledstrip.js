@@ -121,6 +121,18 @@ app.get('/scenario/:sId', async function(req, res) {
         fxList[0] = addEffect('freeze')
 		fullDisco()
 		res.send('Let\'s rock!')
+	} else if (sId == "green_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
+		res.send('Green Fire triggered')
+	} else if (sId == "blue_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
+		res.send('Blue Fire triggered')
 	} else if (sId == "load") {
 		doCfgLoad()
 		res.send('Stored Scenario loaded')

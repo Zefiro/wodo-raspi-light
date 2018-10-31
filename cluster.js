@@ -73,7 +73,7 @@ var self = {
 			data += "<br>"
 		}
 		if (self.ioClient) {
-			data += "<b>Cluste Client:</b> "
+			data += "<b>Cluster Client:</b> "
 			data += self.client.connected ? "connected to server" : "trying to connect"
 			data += "<br>"
 		}
