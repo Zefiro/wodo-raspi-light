@@ -1,5 +1,6 @@
 const clientFactory = require('socket.io-client')
-
+const util = require('util')
+const dns = require('dns')
 
 
 module.exports = function() {
@@ -22,7 +23,7 @@ var self = {
 		console.log("ClusterD: ready for clients")
 		self.updateBrowser()
 
-		self.ioServer.of('cluster').on('connection', function(s) {
+		self.ioServer.of('cluster').on('connection', async (s) => {
 			s.on('disconnect', function(data){
 				if (self.server.clientSocket == s) {
 					self.server.clientSocket = null
@@ -30,11 +31,12 @@ var self = {
 					self.updateBrowser()
 				}
 			})
-			s.on('cluster-subscribe', function(data){
+			s.on('cluster-subscribe', async (data) => {
 				self.server.clientSocket = s
-				console.log("ClusterD: client connected")
 				self.updateConfig()
 				self.updateBrowser()
+				let rdns = await util.promisify(dns.reverse)(s.client.conn.remoteAddress)
+				console.log("ClusterD: client connected from " + s.client.conn.remoteAddress + " (" + rdns + ")")
 			})
 		})
 	},

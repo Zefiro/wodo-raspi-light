@@ -9,6 +9,7 @@ const io = require('socket.io')(http, { })
 const fxutil = require('./fx/fx_util')
 const util = require('util')
 const dict = require("dict")
+const dns = require('dns')
 const cluster = require('./cluster')()
 
 const TARGET_FPS = 50
@@ -93,8 +94,10 @@ process.on('uncaughtException', function (err) {
 app.use('/', require('express').static(__dirname + '/public'))
 
 app.get('/scenario/:sId', async function(req, res) {
+	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	console.log("Scenario requested: " + sId)
+	let rdns = await util.promisify(dns.reverse)(ip)
+	console.log("Scenario %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "alarm") {
 		fxList.length = 0
         fxList[0] = addEffect('freeze')
@@ -143,20 +146,25 @@ app.get('/scenario/:sId', async function(req, res) {
 	sendFullConfig()
 });
 
-app.get('/slave/:slaveId/:type', function(req, res) {
+app.get('/slave/:slaveId/:type', async function(req, res) {
 	var slaveIp = req.ip
 	var slaveId = req.params.slaveId
 	var slaveType = req.params.type
-	console.log("Slave #" + slaveId + " (" + slaveIp + ") pinged" + (slaveType ? " (type: " + slaveType + ")" : ""))
+	let rdns = await util.promisify(dns.reverse)(slaveIp)
+	console.log("Slave #%s (%s / %s) pinged (type: %s)", slaveId, slaveIp, rdns, slaveType)
 	
 	var slaveDict = variables.get('Slave' + slaveId)
-	slaveDict.set('slaveIp', slaveIp)
-	slaveDict.set('slaveId', slaveId)
-	slaveDict.set('slaveType', slaveType)
-	slaveDict.set('lastPing', Date.now())
-	slaveDict.set('lastPushed', 0)
-	res.send("ok")
-	sendFullConfig()
+	if (slaveDict) {
+		slaveDict.set('slaveIp', slaveIp)
+		slaveDict.set('slaveId', slaveId)
+		slaveDict.set('slaveType', slaveType)
+		slaveDict.set('lastPing', Date.now())
+		slaveDict.set('lastPushed', 0)
+		res.send("ok")
+		sendFullConfig()
+	} else {
+		res.send("Unknown slave")
+	}
 });
 
 http.listen(80, function(){
@@ -179,8 +187,9 @@ function getFullConfigAsHtml() {
 	return html
 }
 
-io.of('/browser').on('connection', (socket) => {
-  console.log('a user connected from ' + socket.client.conn.remoteAddress + ", socket.id=" + socket.id)
+io.of('/browser').on('connection', async (socket) => {
+  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
+  console.log('a user connected from %s (%s)", socket.id=', socket.client.conn.remoteAddress, rdns, socket.id)
 
   socket.on('browser-subscribe', () => {
 	console.log("Identified as browser: socket.id=" + socket.id)
