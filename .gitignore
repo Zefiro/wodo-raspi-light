@@ -25,3 +25,4 @@ node_modules/
 
 # saved configuration
 ledstrip.conf
+ledstrip.log

@@ -13,6 +13,8 @@
     "start": "sudo node ledstrip.js"
   },
   "dependencies": {
+    "axios": "*",
+    "clone": "*",
     "compression": "*",
     "dict": "*",
     "errorhandler": "*",
@@ -25,7 +27,6 @@
     "serialport": "*",
     "socket.io": "*",
     "socket.io-client": "*",
-    "clone": "*",
-    "axios": "*"
+    "winston": "^3.1.0"
   }
 }

@@ -1,11 +1,14 @@
-var util = require('./fx_util')
+const util = require('./fx_util')
+const winston = require('winston')
 
-module.exports = function(layout, name) { return {
+module.exports = function(layout, name) { 
+var self = {
 
     // FX configuration
 	layout: layout,
 	lastColors: [],
 	frozen: false,
+	logger: winston.loggers.get('fx_freeze'),
     
     getName: function() {
         return "Freezes a color"
@@ -66,7 +69,7 @@ ${prefix}updateButton(${this.frozen})
         if (this.frozen) {
 			// layout changed since frozen?
 			if (this.layout.fxLength != this.lastColors.length) {
-				console.log("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
+				self.logger.warn("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
 				this.lastColors = util.mergeColors(this.layout.fxLength, this.lastColors)
 			}
 			return util.mergeColors(this.layout.canvasSize, canvas, this.lastColors, this.layout.canvasStart)
@@ -76,4 +79,6 @@ ${prefix}updateButton(${this.frozen})
 		}
     },
     
-}}
+}
+	return self
+}

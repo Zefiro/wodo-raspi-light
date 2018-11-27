@@ -39,7 +39,6 @@ function createAllPixels(numLeds) {
 function createTemperatureMap(color) {
     var colors = new Array(256)
 	var colormap
-	console.log("fire: color=" + color)
 	if (color == 'blue') {
 		colormap = [
 			{idx:   0, col: {r:   0, g:   0, b:   0}},
