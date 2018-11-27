@@ -231,8 +231,12 @@ function getFullConfigAsHtml() {
 }
 
 io.of('/browser').on('connection', async (socket) => {
-  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
-  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
+	// TODO this 'await' leads to loosing the first messages sent :(
+	// this variant avoids this, but messes with the ordering of the logs
+  (async () => {
+	  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
+	  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
+  })()
 
   socket.on('browser-subscribe', () => {
 	logger.info("Identified as browser: socket.id=" + socket.id)
@@ -241,7 +245,7 @@ io.of('/browser').on('connection', async (socket) => {
   
   
   socket.on('browser-requestReadConfig', (data) => {
-	logger.debug("Sending full config to " + socket.id)
+	logger.debug("Sending full config to %s", socket.id)
 	let html = getFullConfigAsHtml()
     socket.emit('browserD-sendConfig', html)
 	cluster.updateBrowser()
