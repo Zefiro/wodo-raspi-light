@@ -136,6 +136,38 @@ process.on('uncaughtException', async function (err) {
 
 app.use('/', require('express').static(__dirname + '/public'))
 
+
+const exec = util.promisify(require('child_process').exec);
+async function runCommand(cmd) {
+	logger.warn("Calling system command: %s", cmd)
+	const { stdout, stderr } = await exec(cmd);
+	console.log('stdout:', stdout);
+	console.log('stderr:', stderr);
+  return stdout + "\n" + stderr
+}
+
+app.get('/cmd/:sId', async function(req, res) {
+	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
+	var sId = req.params.sId
+	let rdns = await util.promisify(dns.reverse)(ip)
+	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
+	if (sId == "setTime") {
+		let stdout = await runCommand('./setTime.sh')
+		res.send(stdout)
+	} else if (sId == "shutdown") {
+		if (req.query.pwd == 'pi') { // low-value password, reachable only from my Intranet
+			let stdout = await runCommand('./shutdown.sh')
+			res.send(stdout)
+		} else {
+			res.send("Nice try. Blocked.")
+		}
+	} else {
+     	logger.error("Command not found: " + sId)
+		res.status(404).send('Command not found: ' + sId)
+	}
+	sendFullConfig()
+});
+
 app.get('/scenario/:sId', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId

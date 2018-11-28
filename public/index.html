@@ -177,7 +177,7 @@ function checkPageRefresh() {
             // load error - try again later
             console.log("While checking $Self, got status " + textStatus);
             setTimeout(checkPageRefresh, 2000);
-            $('title').html = "Connection lost, retrying...";
+            $('#title').html("Connection lost, retrying...");
         }
     }, error:function(jqXHR, textStatus, errorThrown) {
         console.log("$Self not retrieveable - trying again later");
@@ -254,13 +254,29 @@ function doTap() {
 	}
 }
 
+var titleClickCount = 0
+function clickedTitle() {
+	titleClickCount++
+	if (titleClickCount == 3) {
+		titleClickCount = 0
+		$('#cmd').toggle()
+	}
+}
+
 
 // --></script>
 
 </head>
 <body>
 
-<h1 id="title">World Domination - Regalbrett</h1>
+<h1 id="title" onclick="clickedTitle()">World Domination - Regalbrett</h1>
+
+<div id="cmd" style="display:none; margin: 2em">
+<button onclick="location.href='/cmd/setTime'">reset Time</button>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<button onclick="pwd=prompt('password');if(pwd){location.href='/cmd/shutdown?pwd='+pwd}">shut down RasPi</button>
+</div>
+
 <a href="/">Reload</a> <span id="connectionStatus">(connecting...)</span><br>
 <br>
 <span id="clusterStatus"></span>
