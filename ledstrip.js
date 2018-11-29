@@ -211,6 +211,12 @@ app.get('/scenario/:sId', async function(req, res) {
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
 		res.send('Blue Fire triggered')
+	} else if (sId == "red_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
+		res.send('Red Fire triggered')
 	} else if (sId == "load") {
 		doCfgLoad()
 		res.send('Stored Scenario loaded')
