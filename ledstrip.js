@@ -89,7 +89,7 @@ function addLogger(name, level = 'debug', label = name) {
 }
 addLogger('main', 'debug')
 addLogger('cluster-server', 'debug', 'ClusterD')
-addLogger('cluster-server', 'debug', 'ClusterD')
+addLogger('cluster-client', 'debug', 'ClusterC')
 addLogger('fx_freeze', 'debug', 'FX Freeze')
 
 const logger = winston.loggers.get('main')
