@@ -9,6 +9,7 @@ const util = require('util')
 const dict = require("dict")
 const dns = require('dns')
 const winston = require('winston')
+const lo = require('lodash')
 
 // this is our own fork, remember to set the symlink in node_modules
 const ws281x = require('node-rpi-ws281x-native')
@@ -31,6 +32,14 @@ var colors = new Array()
 
 const scenarios = [
 	{
+		name: '[default]', // referenced by index 0, not by name
+		ledCount: 50,
+		canvasSize: 50,
+		hardware: {
+			invert: 1,
+			frequency: 400000,
+		},
+	}, {
 		name: 'regalbrett',
 		cluster: {
 			type: 'server',
@@ -53,8 +62,10 @@ const scenarios = [
 		canvasSize: 50,
 	}, {
 		name: 'shadow-stein',
-		ledCount: 50,
-		canvasSize: 50,
+		hardware: {
+			invert: 0,
+			frequency: 400000,
+		},
 	}
 ]
 
@@ -112,6 +123,7 @@ const config = function() {
 		// TODO wait for logger to finish
 		process.exit(1)
 	}
+	scenario = lo.merge(scenarios[0], scenario)
 	return scenario
 }()
 
@@ -122,8 +134,7 @@ const variables = dict()
 
 logDActivated = false
 
-ws281x.init(config.ledCount, { "invert": 1, "frequency": 400000 } )
-//ws281x.init(config.ledCount)
+ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency } )
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
