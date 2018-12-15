@@ -27,12 +27,10 @@ serialport.list(function (err, ports) {
 });
 //*/
 
-module.exports = function(numLeds, configManager) { 
+module.exports = function(layout, configManager) { 
 	var self = {
 
     // FX configuration
-	_inputIndexes: [],
-	_numLeds: numLeds,
 	_configManager: configManager,
 //    _comPortName: '/dev/ttyUSB0',
     _comPortName: '/dev/ttyAMA0',
@@ -256,10 +254,6 @@ module.exports = function(numLeds, configManager) {
 			this._configManager.updateUsers()
 		}.bind(this))
 	},
-    
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
     
     getName: function() {
         return "rfid Receiver"

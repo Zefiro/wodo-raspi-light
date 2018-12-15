@@ -1,65 +1,198 @@
 #!/usr//bin/node
 
-const ws281x = require('node-rpi-ws281x-native')
 const app = require('express')()
 const fs = require('fs')
 const Q = require('q')
 const http = require('http').Server(app)
 const io = require('socket.io')(http, { })
-const util = require('./fx/fx_util')
+const util = require('util')
 const dict = require("dict")
+const dns = require('dns')
+const winston = require('winston')
+
+// this is our own fork, remember to set the symlink in node_modules
+const ws281x = require('node-rpi-ws281x-native')
+
+const fxutil = require('./fx/fx_util')
+const cluster = require('./cluster')()
 
 const TARGET_FPS = 50
 
-const NUM_LEDS = parseInt(process.argv[2], 10) || 50
 const fxList = []
-var colors = new Array(NUM_LEDS)
+var colors = new Array()
+
+/* TODO
+ - clusterC: show that we're a client and disable all input controls (or send them to the master?)
+ - clusterD: when we got a client, change canvas size automatically? and back? with a delay?
+ - Freeze auf Cluster-Client "springt"
+
+*/
+
+
+const scenarios = [
+	{
+		name: 'regalbrett',
+		cluster: {
+			type: 'server',
+		},
+		ledCount: 96,
+		canvasSize: 136,
+	}, {
+		name: 'regalbrett2',
+		cluster: {
+			type: 'client',
+			url: 'http://regalbrett.dyn.cave.zefiro.de',
+			offset: 96,
+			reverse: true,
+		},
+		ledCount: 40,
+		canvasSize: 136,
+	}, {
+		name: 'zcon',
+		ledCount: 50,
+		canvasSize: 50,
+	}, {
+		name: 'shadow-stein',
+		ledCount: 50,
+		canvasSize: 50,
+	}
+]
 
 // available effects for the user to select
-// Unfinished Effects: dmx, transpose, merge, combine, shippo
-const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'misan']
+// Unfinished Effects: dmx, transpose, shippo, misan
+const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
+
+
+
+function addLogger(name, level = 'debug', label = name) {
+    let { format } = require('logform');
+	let getFormat = (label, colorize = false) => {
+		let nop = format((info, opts) => { return info })
+		return format.combine(
+			colorize ? format.colorize() : nop(),
+			format.timestamp({
+				format: 'YYYY-MM-DD HH:mm:ss',
+			}),
+			format.label({ label: label }),
+			format.splat(),
+			format.printf(info => `${info.timestamp} [${info.level}] [${info.label}] \t${info.message}`)
+			)
+	}
+	winston.loggers.add(name, {
+	  level: level,
+	  transports: [
+		new winston.transports.Console({
+			format: getFormat(label, true),
+		}),
+		new winston.transports.File({ 
+			format: getFormat(label, false),
+			filename: 'ledstrip.log'
+		})
+	  ]
+	})
+}
+addLogger('main', 'debug')
+addLogger('cluster-server', 'debug', 'ClusterD')
+addLogger('cluster-client', 'debug', 'ClusterC')
+addLogger('fx_freeze', 'debug', 'FX Freeze')
+
+const logger = winston.loggers.get('main')
+
+
+const config = function() {
+	for(let i = 0; i < scenarios.length; i++) {
+		if (scenarios[i].name == process.argv[2]) {
+			var scenario = scenarios[i]
+			break
+		}
+	}
+	if (!scenario) {
+		logger.warn("Missing or unknown scenario '" + process.argv[2] + "', please choose one of:")
+		scenarios.forEach(scenario => logger.warn(scenario.name))
+		// TODO wait for logger to finish
+		process.exit(1)
+	}
+	return scenario
+}()
+
+
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 const variables = dict()
 
 logDActivated = false
 
-ws281x.init(NUM_LEDS, { "invert": 1, "frequency": 400000 } )
+ws281x.init(config.ledCount, { "invert": 1, "frequency": 400000 } )
+//ws281x.init(config.ledCount)
 
 // ---- trap the SIGINT and reset before exit
-process.on('SIGINT', function () {
-    console.log("Bye, Bye...")
+process.on('SIGINT', async function () {
+    await logger.error("Bye, Bye...")
     ws281x.reset()
     process.nextTick(function () { process.exit(0) })
 })
 
-process.on('uncaughtException', function (err) {
-    // handle the error safely
-    console.log(err.stack)
+// handle the error safely
+process.on('uncaughtException', async function (err) {
+    await logger.error(err.stack)
     ws281x.reset()
     process.nextTick(function () { process.exit(0) })
 })
 
 app.use('/', require('express').static(__dirname + '/public'))
 
-app.get('/scenario/:sId', function(req, res) {
+
+const exec = util.promisify(require('child_process').exec);
+async function runCommand(cmd) {
+	logger.warn("Calling system command: %s", cmd)
+	const { stdout, stderr } = await exec(cmd);
+	console.log('stdout:', stdout);
+	console.log('stderr:', stderr);
+  return stdout + "\n" + stderr
+}
+
+app.get('/cmd/:sId', async function(req, res) {
+	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	console.log("Scenario requested: " + sId)
+	let rdns = await util.promisify(dns.reverse)(ip)
+	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
+	if (sId == "setTime") {
+		let stdout = await runCommand('./setTime.sh')
+		res.send(stdout)
+	} else if (sId == "shutdown") {
+		if (req.query.pwd == 'pi') { // low-value password, reachable only from my Intranet
+			let stdout = await runCommand('./shutdown.sh')
+			res.send(stdout)
+		} else {
+			res.send("Nice try. Blocked.")
+		}
+	} else {
+     	logger.error("Command not found: " + sId)
+		res.status(404).send('Command not found: ' + sId)
+	}
+	sendFullConfig()
+});
+
+app.get('/scenario/:sId', async function(req, res) {
+	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
+	var sId = req.params.sId
+	let rdns = await util.promisify(dns.reverse)(ip)
+	logger.info("Scenario %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "alarm") {
-		fxList = []
-        fxList[0] = addEffect('freeze').requireIdx([1])
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('alarm')
 		res.send('Alarm triggered')
 	} else if (sId == "alarm2") {
-		fxList = []
-        fxList[0] = addEffect('freeze').requireIdx([1])
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
 		res.send('Alarm2 triggered')
 	} else if (sId == "calm") {
-		fxList = []
-        fxList[0] = addEffect('freeze').requireIdx([1])
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
         fxList[1] = addEffect('rainbow')
         fxList[1].fx.len = 98
         fxList[1].fx.cyclelen = 600
@@ -67,135 +200,156 @@ app.get('/scenario/:sId', function(req, res) {
         fxList[1].fx._offset = 50
 		res.send('Calming down...')
 	} else if (sId == "disco") {
-		fxList = []
-        fxList[0] = addEffect('freeze').requireIdx([1])
-		stripWall = addEffect('disco')
-		stripWall.fx.numLeds = 57
-		stripWindow = addEffect('disco')
-		stripWindow.fx.numLeds = 41
-		stripMerge = addEffect('merge')
-		stripMerge.fx.s_indexes = [ 2, 3 ]
-		stripMerge.fx.s_length = stripWindow.fx.numLeds
-		stripMerge.fx.s_start = stripWall.fx.numLeds
-
-		fxList[1] = stripMerge
-		fxList[2] = stripWall
-		fxList[3] = stripWindow
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+		fullDisco()
 		res.send('Let\'s rock!')
+	} else if (sId == "green_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
+		res.send('Green Fire triggered')
+	} else if (sId == "blue_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
+		res.send('Blue Fire triggered')
+	} else if (sId == "red_fire") {
+		fxList.length = 0
+        fxList[0] = addEffect('freeze')
+        fxList[1] = addEffect('fire')
+        fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
+		res.send('Red Fire triggered')
 	} else if (sId == "load") {
 		doCfgLoad()
 		res.send('Stored Scenario loaded')
 	} else {
-     	console.log("Scenario not found: " + sId)
+     	logger.error("Scenario not found: " + sId)
 		res.status(404).send('Scenario not found: ' + sId)
 	}
-});
-
-app.get('/slave/:slaveId/:type', function(req, res) {
-	var slaveIp = req.ip
-	var slaveId = req.params.slaveId
-	var slaveType = req.params.type
-	console.log("Slave #" + slaveId + " (" + slaveIp + ") pinged" + (slaveType ? " (type: " + slaveType + ")" : ""))
-	
-	var slaveDict = variables.get('Slave' + slaveId)
-	slaveDict.set('slaveIp', slaveIp)
-	slaveDict.set('slaveId', slaveId)
-	slaveDict.set('slaveType', slaveType)
-	slaveDict.set('lastPing', Date.now())
-	slaveDict.set('lastPushed', 0)
-	res.send("ok")
 	sendFullConfig()
 });
 
+app.get('/slave/:slaveId/:type', async function(req, res) {
+	var slaveIp = req.ip
+	var slaveId = req.params.slaveId
+	var slaveType = req.params.type
+	let rdns = await util.promisify(dns.reverse)(slaveIp)
+	logger.debug("Slave #%s (%s / %s) pinged (type: %s)", slaveId, slaveIp, rdns, slaveType)
+	
+	var slaveDict = variables.get('Slave' + slaveId)
+	if (slaveDict) {
+		slaveDict.set('slaveIp', slaveIp)
+		slaveDict.set('slaveId', slaveId)
+		slaveDict.set('slaveType', slaveType)
+		slaveDict.set('lastPing', Date.now())
+		slaveDict.set('lastPushed', 0)
+		res.send("ok")
+		sendFullConfig()
+	} else {
+		res.send("Unknown slave")
+	}
+});
+
 http.listen(80, function(){
-  console.log('listening on *:80')
+  logger.info('listening on *:80')
 })
 
 function sendFullConfig() {
-	console.log("Resending config to all clients")
-    html = "<h3>Configuration</h3>"
+	logger.debug("Resending full config to all clients")
+	let html = getFullConfigAsHtml()
+    io.of('/browser').emit('browserD-sendConfig', html)
+	cluster.updateConfig()
+}
+
+function getFullConfigAsHtml() {
+	let html = "<h3>Configuration</h3>"
     for(var idx = 0; idx < fxList.length; idx++) {
-        html += util.fxgroup(idx, fxList[idx].fx)
+        html += fxutil.fxgroup(idx, fxList[idx].fx)
     }
-	html += util.fxselect(fxNames, fxList)
-    io.emit('fxConfigRead', html)
+	html += fxutil.fxselect(fxNames, fxList)
+	return html
 }
 
-var latestClientId = 0;
-function getNewClientId() {
-	return ++latestClientId
-}
+io.of('/browser').on('connection', async (socket) => {
+	// TODO this 'await' leads to loosing the first messages sent :(
+	// this variant avoids this, but messes with the ordering of the logs
+  (async () => {
+	  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
+	  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
+  })()
 
-var socket = {}
-
-io.on('connection', function(s) {
-  socket = s
-  var clientId = getNewClientId()
-  console.log('a user connected from ' + socket.client.conn.remoteAddress + ", clientId=" + clientId)
-
-  socket.on('fxClientId', function(data){
-    socket.emit('fxClientId', clientId)
+  socket.on('browser-subscribe', () => {
+	logger.info("Identified as browser: socket.id=" + socket.id)
+    socket.emit('browserD-clientId', socket.id)
   })
   
-  socket.on('fxConfigRead', function(data){
-    sendFullConfig()
+  
+  socket.on('browser-requestReadConfig', (data) => {
+	logger.debug("Sending full config to %s", socket.id)
+	let html = getFullConfigAsHtml()
+    socket.emit('browserD-sendConfig', html)
+	cluster.updateBrowser()
   })
   
-  socket.on('zconListRead', function(data) {
+  socket.on('zconListRead', (data) => {
 	  configManager.zconListRead(socket, data)
   })
   
-  socket.on('fxConfigWrite', function(data){
+  socket.on('browser-sendConfigUpdate', (data) => {
     dataOut = []
     for(var idx = 0; idx < data.length; idx++) {
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
 		var fx = fxList[fxIdx].fx
-		// TODO compare ID if it's still an active effect, silently ignore otherwise
+		// TODO compare fx if it's still an active effect, silently ignore otherwise
 		fx.setConfigData(cfg)
-		dataOut.push({fx:fxIdx,id:0,clientId:clientId,cfg:cfg})
+		dataOut.push({fx: fxIdx, cfg: cfg})
     }
-    io.emit('fxConfigWrite', dataOut)
-	
-	console.log("Sent to clients:"); console.log(dataOut)
+	logger.debug("Got a config update from client.id=%s, sending out to all other clients:", socket.id)
+	logger.debug(dataOut)
+	socket.broadcast.emit('browserD-sendConfigUpdate', dataOut)
+	cluster.updateConfig()
   })
 
-  socket.on('setFx', function(data) {
-    console.log("setFx("+data+")")
-    // TODO only for "Regalbrett"
-    if (false && fxNames[data] === "disco") {
+  socket.on('browser-setFx', function(data) {
+    logger.info("browser-setFx("+data+")")
+    if (config.name == "regalbrett" && fxNames[data] === "disco") {
         fullDisco();
     } else {
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
-		if (true) { // only for ZCon
+		if (config.name == "zcon") {
 			// keep fxList[0] unchanged, as it holds state
 			fxList[1] = addEffect(fxNames[data])
 			fxList[2] = addEffect('slave', 'Slave1')
 		} else {
-			fxList[0] = addEffect('freeze').requireIdx([1])
+			fxList[0] = addEffect('freeze')
 			fxList[1] = addEffect(fxNames[data])
 		}
     }
     sendFullConfig()
   })
 
-  socket.on('fxColorRead', function(msg){
+  socket.on('browser-requestPreview', function(msg){
     data = { c: [] }
-    for(var idx = 0; idx < colors.length; idx++) {
-        data.c[idx] = util.rgb2html(colors[idx])
+    for(var idx = 0; idx < config.ledCount; idx++) {
+        data.c[idx] = fxutil.rgb2html(colors[idx])
     }
-    socket.emit('fxColorRead', data)
+    socket.volatile.emit('browserD-sendPreview', data)
   })
 
-  socket.on('disconnect', function(){
-    console.log('user disconnected, clientId=' + clientId)
+  socket.on('disconnect', function(data){
+    logger.warn('user disconnected, client.id=' + socket.id)
+	logger.warn(data)
   })
 
-  socket.on('cfgDoSave', function(msg){
+  socket.on('browser-cfgDoSave', function(msg){
     doCfgSave(socket, msg)
   })
 
-  socket.on('cfgDoLoad', function(msg){
+  socket.on('browser-cfgDoLoad', async function(msg){
     doCfgLoad(socket, msg)
   })
 
@@ -235,17 +389,20 @@ sendFullConfig
 
 var configManager = {
 	update: function() {
-	sendFullConfig();
+		sendFullConfig();
 	},
 	updateUsers: function() {
 		configManager.zconListRead(io, {})
+	},
+	sendToBrowser: function(id, data) {
+	    io.of('/browser').emit(id, data)
 	},
 	variables: variables,
 	fxList: fxList,
 	addEffect: addEffect,
 	toast: function(txt) {
 		if (io) {
-			console.log("Toasting: " + txt)
+			logger.info("Toasting: " + txt)
 			io.emit("toast", txt)
 		}
 	},
@@ -254,28 +411,39 @@ var configManager = {
 
 function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
-    console.log("adding effect " + fxName + " as " + fxVarName + " (" + NUM_LEDS + ")")
-	effect = require('./fx/' + fxName)(NUM_LEDS, configManager, socket)
+    logger.debug("adding effect " + fxName + " as " + fxVarName + " (" + config.canvasSize + ")")
+	let layout = {
+		// size of the full canvas (i.e. the array of calculated colors, which is used for other effects and finally to drive the LEDs)
+		canvasSize: config.canvasSize,
+		// size of the effect calculation. May differ from the canvas size
+		fxSize: config.canvasSize,
+		// size of the effect to be calculated. May be smaller than effectSize
+		fxLength: config.ledCount,
+		// where on the effect calculation space the actual effect subset should be started
+		fxStart: 0,
+		// where on the canvas to start placing the effect
+		canvasStart: 0,
+		// whether placement of the effect on the canvas should be done reversed
+		reverse: false,
+	}
+	effect = require('./fx/' + fxName)(layout, configManager)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
+		varName: fxVarName,
         fx: effect,
-		requireIdx: function(idx) {
-            this.fx._inputIndexes = Array.isArray(idx) ? idx : [idx]
-            return this
-        },
     }
 }
 
 function logD(obj) {
     if (logDActivated) {
-        console.log(obj)
+        logger.info(obj)
     }
 }
 
 var cfgFilename = "ledstrip.conf"
-function doCfgSave(socket, msg) {
-    console.log("Save triggered...")
+async function doCfgSave(socket, msg) {
+    logger.info("Save triggered...")
     var config = {
         _comment: "Saved configurations for Ledstrip.js",
         fxList: []
@@ -287,82 +455,60 @@ function doCfgSave(socket, msg) {
             cfg: fxCfg,
         }
     }
-    var p=Q.nfcall(fs.writeFile, cfgFilename, JSON.stringify(config, null, 4), {encoding: 'utf-8'})
-    p.fail(function () {
-        console.log("Failed to write config file " + cfgFilename)
-        socket.emit("toast", "Failed to write config")
-    })
-    p.then(function () {
+	let writeFile = util.promisify(fs.writeFile)
+	try {
+        await writeFile(cfgFilename, JSON.stringify(config, null, 4), {encoding: 'utf-8'})
         socket.emit("toast", "Config saved")
-    })
+	} catch (error) {
+        logger.error("Failed to write config file " + cfgFilename + ": " + error)
+        socket.emit("toast", "Failed to write config")
+	}
 }
 
-function doCfgLoad(socket, msg) {    
-    console.log("Load triggered...")
-    var p=Q.nfcall(fs.readFile, cfgFilename, {encoding: 'utf-8'})
-    p.fail(function () {
-        console.log("Failed to read config file " + cfgFilename)
-        socket && socket.emit("toast", "Failed to read config")
-    })
-    p.then(function (data) {
+async function doCfgLoad(socket, msg) {    
+    logger.info("Load triggered...")
+	let readFile = util.promisify(fs.readFile)
+	try {
+		let data = await readFile(cfgFilename, {encoding: 'utf-8'})
         var config = JSON.parse(data)
-        fxList = []
+        fxList.length = 0
         for(var i = 0; i < config.fxList.length; i++) {
             var fx = addEffect(config.fxList[i].name)
             var cfg = config.fxList[i].cfg
             fx.fx.loadConfigData(cfg)
             fxList.push(fx)
         }
+		logger.info("Config loaded: " + fxList.length + " effects")
         sendFullConfig()
         socket && socket.emit("toast", "Config loaded")
-    })
-}
-
-// used by renderColors() and renderAllColors()
-var tempColors = []
-
-function renderAllColors() {
-	for(idx = fxList.length-1; idx >= 0; idx--) {
-		if (fxList[idx] === undefined) {
-			logD("renderAllColors: undefined fx[" + idx + "], default to black")
-			tempColors[idx] = util.mergeColors(NUM_LEDS)
-			continue
-		}
-		var inputIdxList = fxList[idx].fx.getInputIndexes()    
-    	var inputColors = []
-		for(var i = 0; i < inputIdxList.length; i++ ) {
-			var inputIdx = inputIdxList[i]
-			if (inputIdx == idx) {
-				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> it's us! use black")
-				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
-			} else if (tempColors[inputIdx] === undefined) {
-				logD("renderAllColors: input #" + i + " is fx #" + inputIdx + " -> not defined yet, use black (effects may only use inputs deeper down in the stack)")
-				tempColors[inputIdx] = util.mergeColors(NUM_LEDS)
-			}
-			inputColors[i] = tempColors[inputIdx]
-			logD("inputColors now defined:")
-	//        console.log(inputColors)
-		}
-		logD("renderAllColors: calling fx[" + idx + "] '"+fxList[idx].fx.getName()+"' with inputs: " + inputIdxList)
-		tempColors[idx] = fxList[idx].fx.renderColors(inputColors, variables)
-	}
+	} catch (error) {
+        logger.error("Failed to read config file " + cfgFilename + ": " + error)
+        socket && socket.emit("toast", "Failed to read config")
+    }
 }
 
 function renderColors() {
-    tempColors = []
-	renderAllColors()
-    return util.mergeColors(NUM_LEDS, tempColors[0])
+    let canvas = fxutil.mergeColors(config.canvasSize)
+	for(idx = fxList.length-1; idx >= 0; idx--) {
+		if (fxList[idx] === undefined) {
+			logD("renderColors: undefined fx[" + idx + "], ignoring")
+			continue
+		}
+		logD("renderColors: calling fx[" + idx + "] '" + fxList[idx].fx.getName())
+		canvas = fxList[idx].fx.renderColors(canvas, variables)
+	}
+	
+    return fxutil.mergeColors(config.canvasSize, canvas)
 }
 
 
 
 
 
-var pixelData = new Uint32Array(NUM_LEDS)
+var pixelData = new Uint32Array(config.ledCount)
 var fps_lastDate = new Date()
 var fps_smoothed = 1000 / TARGET_FPS
 
-// only add effects and start rendering, when socket is loaded. pass socket to effect module
 function startRendering() {
     var timerId = setInterval(function () {
         fps_currentDate = new Date()
@@ -373,16 +519,16 @@ function startRendering() {
         logD("Timer: render all colors")
         colors = renderColors()
         // set the colors
-        if (colors === undefined || colors.length != NUM_LEDS) {
-            console.log("colors is undefined or of wrong length! Aborting!")
+        if (colors === undefined || colors.length != config.canvasSize) {
+            logger.error("colors is undefined or of wrong length! Aborting!")
             process.exit(1)
         }
-        for(var i=0; i<NUM_LEDS; i++) { 
-            pixelData[i] = util.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+        for(let i = 0; i < config.ledCount; i++) { 
+            pixelData[i] = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
         }
         ws281x.render(pixelData)
         
-    //    console.log("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
+    //    logger.info("\033[1A" + Math.round(1000 / fps_smoothed) + " / " + (new Date() - fps_currentDate) + " ")
     }, 1000 / TARGET_FPS)
 }
 
@@ -391,32 +537,49 @@ function startRendering() {
 
 // scene setting for disco effect on 'Regalbrett'
 function fullDisco() {
-    stripWall = addEffect('disco')
-    stripWall.fx.numLeds = 57
-    stripWindow = addEffect('disco')
-    stripWindow.fx.numLeds = 41
-    stripMerge = addEffect('merge')
-    stripMerge.fx.s_indexes = [ 2, 3 ]
-    stripMerge.fx.s_length = stripWindow.fx.numLeds
-    stripMerge.fx.s_start = stripWall.fx.numLeds
-
-    fxList[1] = stripMerge
-    fxList[2] = stripWall
-    fxList[3] = stripWindow
+    stripWall = addEffect('disco', 'disco1')
+    stripWall.fx.layout.canvasStart = 0
+    stripWall.fx.layout.fxLength = 57
+    stripWindow = addEffect('disco', 'disco2')
+    stripWall.fx.layout.canvasStart = 57
+    stripWall.fx.layout.fxLength = 41
+    fxList[1] = stripWall
+    fxList[2] = stripWindow
 }
 
-console.log('Press <ctrl>+C to exit.')
+logger.info('Press <ctrl>+C to exit.')
 
 
-if (true) {
+if (false) {
     // only for ZCon
-    fxList[0] = addEffect('fx_rfid').requireIdx([1])
+    fxList[0] = addEffect('fx_rfid')
     fxList[1] = addEffect('fire')
     fxList[2] = addEffect('slave', 'Slave1')
     fxList[3] = addEffect('slave', 'Slave2')
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
     doCfgLoad()
+/*	
+	fxList.length = 0
+	fxList[0] = addEffect('freeze')
+	fxList[1] = addEffect('rainbow')
+	fxList[1].fx._segment.start = 0
+	fxList[1].fx._segment.length = 25
+	fxList[1].fx._segment.start2 = 0
+/*
+	fxList[2] = addEffect('rainbow', 'rainbow2')
+	fxList[2].fx._segment.start = 25
+	fxList[2].fx._segment.length = 25
+	fxList[2].fx._segment.start2 = 25
+	fxList[2].fx._segment.reverse = true
+*/
 }
 
 startRendering()
+if (config.cluster && config.cluster.type == "server") {
+	cluster.initServer(io, configManager)
+}
+if (config.cluster && config.cluster.type == "client") {
+	cluster.initClient(configManager, config.cluster)
+}
+

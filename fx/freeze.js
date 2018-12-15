@@ -1,29 +1,44 @@
-var util = require('./fx_util')
+const util = require('./fx_util')
+const winston = require('winston')
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(layout, name) { 
+var self = {
 
     // FX configuration
-    numLeds: _numLeds,
-    _inputIndexes: [],
+	layout: layout,
 	lastColors: [],
 	frozen: false,
-    
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
+	logger: winston.loggers.get('fx_freeze'),
     
     getName: function() {
         return "Freezes a color"
     },
     
     getConfigHtml: function(idx) {
-        html = "<button onclick='fx"+idx+"_toggleFreeze(!fx"+idx+"_toggleFreezeValue);return false' id='fx"+idx+"_btn_Freezer'>Freeze</button><br>"
-        html += "<script>var fx"+idx+"_toggleFreezeValue=false;function fx"+idx+"_toggleFreeze(value){"
-		html += "fx"+idx+"_toggleFreezeValue=value;"
-		html += "if(fx"+idx+"_toggleFreezeValue){console.log('Freeze on');$('#fx"+idx+"_btn_Freezer').text('Unfreeze');}"
-		html += "else{console.log('Freeze off');$('#fx"+idx+"_btn_Freezer').text('Freeze');}"
-		html += "socket.emit('fxConfigWrite', [{fx:"+idx+",id:0,cfg:{frozen: fx"+idx+"_toggleFreezeValue}}]);"
-		html += "};fx"+idx+"_toggleFreeze("+this.frozen+")</script>\n"
+		var prefix = "fx" + idx + "_"
+		let btnText1 = "Freeze" // false => true
+		let btnText2 = "Unfreeze" // true => false
+		html = `
+<button onclick='${prefix}sendUpdateButton(!${prefix}toggleButtonValue);return false' id='${prefix}btn_Freezer'>Freeze</button><br>
+<script>
+var ${prefix}toggleButtonValue=false
+function ${prefix}sendUpdateButton(value){
+${prefix}updateButton(value)
+socket.emit('browser-sendConfigUpdate', [{fx:${idx},id:0,cfg:{frozen: ${prefix}toggleButtonValue}}]);
+}
+function ${prefix}updateButton(value){
+${prefix}toggleButtonValue=value;
+if(${prefix}toggleButtonValue){$('#${prefix}btn_Freezer').text('${btnText2}')}
+else{$('#${prefix}btn_Freezer').text('${btnText1}')}
+}
+fxConfigUpdaters[${idx}]=function(cfg){
+console.log('browserD-sendConfigUpdate->freeze got cfg: ');
+console.log(cfg);
+${prefix}updateButton(cfg.frozen)
+}
+${prefix}updateButton(${this.frozen})
+</script>
+`
         return html
     },
 	
@@ -37,25 +52,33 @@ module.exports = function(_numLeds, name) { return {
     
 	loadConfigData: function(data) {
 		this.frozen = data.frozen
-		this._inputIndexes = data._inputIndexes
 		if (data.lastColors) {
 		    this.lastColors = data.lastColors
 		}
 	},
 	
 	saveConfigData: function() {
-	    var cfg = { frozen: this.frozen, _inputIndexes: this._inputIndexes }
+	    var cfg = { frozen: this.frozen }
 	    if (this.frozen) {
 	        cfg.lastColors = this.lastColors
 	    }
 		return cfg
 	},
     
-    renderColors: function(inputColors) {
-        if (!this.frozen) {
-			this.lastColors = inputColors[0]
+    renderColors: function(canvas) {
+        if (this.frozen) {
+			// layout changed since frozen?
+			if (this.layout.fxLength != this.lastColors.length) {
+				self.logger.warn("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
+				this.lastColors = util.mergeColors(this.layout.fxLength, this.lastColors)
+			}
+			return util.mergeColors(this.layout.canvasSize, canvas, this.lastColors, this.layout.canvasStart)
+		} else {
+			this.lastColors = canvas.slice(this.layout.canvasStart, this.layout.fxLength)
+			return canvas
 		}
-    	return util.mergeColors(this.numLeds, this.lastColors)
     },
     
-}}
+}
+	return self
+}

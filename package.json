@@ -1,8 +1,20 @@
 {
   "name": "wodo-raspi-light",
   "version": "0.0.1",
-  "repository": "Zefiro/wodo-raspi-light",
+  "description": "Colorful Ledstrip for my cave",
+  "author": "Zefiro Anthragon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zefiro/wodo-raspi-light"
+  },
+  "main": "ledstrip.js",
+  "scripts": {
+    "start": "sudo node ledstrip.js"
+  },
   "dependencies": {
+    "axios": "*",
+    "clone": "*",
     "compression": "*",
     "dict": "*",
     "errorhandler": "*",
@@ -14,7 +26,7 @@
     "rpi-gpio": "*",
     "serialport": "*",
     "socket.io": "*",
-    "clone": "*",
-    "axios": "*"
+    "socket.io-client": "*",
+    "winston": "^3.1.0"
   }
 }

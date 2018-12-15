@@ -1,10 +1,9 @@
 var util = require('./fx_util')
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(layout, name) { return {
 
     // FX configuration
-    _inputIndexes: [],
-    numLeds: _numLeds,
+    layout: layout,
     macros: [{
       speed: 2,
       steps: [
@@ -76,10 +75,6 @@ module.exports = function(_numLeds, name) { return {
     stepLastTime: new Date().getTime(),
     bpm: 130,
 	
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
-    
     getName: function() {
         return "disco"
     },
@@ -112,8 +107,7 @@ module.exports = function(_numLeds, name) { return {
 	},
 
 nextTaktOff: 0,
-    renderColors: function(inputColors) {
-		colors = []
+    renderColors: function(canvas) {
 		// calculate current step
 		stepSpeed = 60 * 1000 / (this.bpm) / this.macros[this.actMacro].speed
 		bpmSpeed = 60 * 1000 / (this.bpm) / 4
@@ -144,17 +138,13 @@ if (this.actStep % this.macros[this.actMacro].speed == 0) {
 		        case 'W': col = { r: 255, g: 255, b: 255 }; break
 		        default: col = black; break
             }
-            colors[i*5+0] = col
-            colors[i*5+1] = col
-            colors[i*5+2] = black
-            colors[i*5+3] = black
-            colors[i*5+4] = black
+			util.setCanvasColors(canvas, this.layout, i*5, [ col, col, black, black, black ])
 		}
 // DEBUG bpm display
 var taktCol = util.rgb(0, (this.nextTaktOff > now) ? 10 : 0, 0)
-colors[3] = taktCol
+canvas[0] = taktCol
 //		console.log(this.actStep + " / " + this.steps.length + " / " + (now+1))
-    	return colors
+    	return canvas
     },
     
 }}

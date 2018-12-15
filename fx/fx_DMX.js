@@ -111,10 +111,6 @@ module.exports = function() {
 		})
 	},
     
-    getInputIndexes: function() {
-        return []
-    },
-    
     getName: function() {
         return "DMX Receiver"
     },
@@ -159,10 +155,10 @@ module.exports = function() {
         this.dmx_length = data.dmx_length
 	},
     
-    renderColors: function(inputColors, variables) {
+    renderColors: function(canvas, variables) {
 		// trigger a next read, which will happen asynchronously, unfortunately
 	    this.readDMX()
-    	return inputColors
+    	return canvas
     },
     
 }

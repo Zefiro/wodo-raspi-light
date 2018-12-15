@@ -36,17 +36,47 @@ td.ledstrip {
 
 <script language="JavaScript"><!--
 
-  var socket = io();
+window.addEventListener('error', function (evt) {
+    console.log("FATAL: uncaughtException: '" + evt.message + "' from " + evt.filename + ":" + evt.lineno);
+    console.log(evt); // has srcElement / target / etc
+	$.toast({
+		text: evt.message,
+		icon: 'error',
+		showHideTransition: 'slide', // fade, slide or plain
+		allowToastClose: true,
+		hideAfter: false,
+		stack: 5,
+		position: 'bottom-center',
+		textAlign: 'center',
+		loader: false,
+	});
+    evt.preventDefault();
+});
+
+  var socket = io.connect('/browser');
   var clientId = undefined;
   
-  socket.on('fxConfigRead', function(msg){
-    console.log("fxConfigRead got this piece of HTML to set:")
+  socket.on('browserD-sendConfig', function(msg){
+    console.log("Got new config HTML from server:")
 	console.log(msg)
     $('#configForm').html(msg);
   });
   
-  socket.on('fxClientId', function(data){
-      clientId = data
+  socket.on('browserD-clientId', function(data){
+  console.log(socket)
+		clientId = data
+		console.log("Connected to server as client " + clientId)
+		$('#connectionStatus').html('(<span title="Connected as ' + socket.id + '">Connected</span>)');
+  })
+
+  socket.on('connect', function(data){
+		console.log("connected to server")
+		$('#connectionStatus').text("(connected)");
+  })
+
+  socket.on('disconnect', function(data){
+		console.log("disconnected from server")
+		$('#connectionStatus').text("(disconnected)");
   })
 
   socket.on('toast', function(msg) {
@@ -65,24 +95,24 @@ td.ledstrip {
   })
   
   var fxConfigUpdaters = []
-  socket.on('fxConfigWrite', function(data){
-    console.log("fxConfigWrite got:")
+  socket.on('browserD-sendConfigUpdate', function(data){
+    console.log("Server send a config update:")
 	console.log(data)
     for(var idx = 0; idx < data.length; idx++) {
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
-		// ignore updates triggered by ourselves
-		if (clientId == data[idx].clientId || clientId === undefined) {
-			console.log("Update triggered by ourselves, ignored")
-			continue;
-		}
 		var updater = fxConfigUpdaters[fxIdx]
 		console.log(updater)
 		if (updater !== undefined) {
 		    updater(cfg)
 		}
     }
-  });
+  })
+  
+  socket.on('cluster-status', data => {
+    console.log("Cluster-status: " + data)
+	$('#clusterStatus').html(data)
+  })
 
 var color = ['#000000', '#100000', '#200000', '#300000'];
 var colorUpdateEnabled = false;
@@ -100,14 +130,14 @@ function createTable() {
     pendingColorUpdate = false;
 }
 
-socket.on('fxColorRead', function(data){
+socket.on('browserD-sendPreview', function(data){
     color = data.c;
     createTable();
 });
 
 function refreshColor() {
     pendingColorUpdate = true;
-    socket.emit('fxColorRead', 0);
+    socket.emit('browser-requestPreview', 0);
 }
 
 function colorUpdateOneshot() {
@@ -147,7 +177,7 @@ function checkPageRefresh() {
             // load error - try again later
             console.log("While checking $Self, got status " + textStatus);
             setTimeout(checkPageRefresh, 2000);
-            $('title').html = "Connection lost, retrying...";
+            $('#title').html("Connection lost, retrying...");
         }
     }, error:function(jqXHR, textStatus, errorThrown) {
         console.log("$Self not retrieveable - trying again later");
@@ -173,18 +203,18 @@ function hex2rgb(hex) {
 
 function doCfgSave() {
 	if (confirm("Really overwrite boot-up config?")) {
-		socket.emit('cfgDoSave', 0);
+		socket.emit('browser-cfgDoSave', 0);
 	}
 }
 
 function doCfgLoad() {
-    socket.emit('cfgDoLoad', 0);
+    socket.emit('browser-cfgDoLoad', 0);
 }
 
 $(document).ready(function() {
     setColorUpdate(false);
-    socket.emit('fxClientId')
-    socket.emit('fxConfigRead', 0);
+    socket.emit('browser-subscribe')
+    socket.emit('browser-requestReadConfig');
     checkPageRefresh();
     window.setInterval(function() {
         if (colorUpdateEnabled && !pendingColorUpdate) {
@@ -193,7 +223,7 @@ $(document).ready(function() {
     }, 50);
 });
 
-
+/*
 var bpmLastTapTime;
 var bpmIsTapping = false;
 var bpmLastDurations = [];
@@ -223,6 +253,16 @@ function doTap() {
 		bpmLastTapTime = Date.now();
 	}
 }
+*/
+
+var titleClickCount = 0
+function clickedTitle() {
+	titleClickCount++
+	if (titleClickCount == 3) {
+		titleClickCount = 0
+		$('#cmd').toggle()
+	}
+}
 
 
 // --></script>
@@ -230,8 +270,18 @@ function doTap() {
 </head>
 <body>
 
-<h1 id="title">World Domination - Regalbrett</h1>
-<a href="/">Reload</a><br>
+<h1 id="title" onclick="clickedTitle()">World Domination - Regalbrett</h1>
+
+<div id="cmd" style="display:none; margin: 2em">
+<button onclick="location.href='/cmd/setTime'">reset Time</button>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<button onclick="pwd=prompt('password');if(pwd){location.href='/cmd/shutdown?pwd='+pwd}">shut down RasPi</button>
+</div>
+
+<a href="/">Reload</a> <span id="connectionStatus">(connecting...)</span><br>
+<br>
+<span id="clusterStatus"></span>
+
 <!-- <a href="zcon.html">ZCon</a><br> -->
 
 <h2>Live Preview:</h2>
@@ -240,18 +290,19 @@ function doTap() {
 <button onclick="setColorUpdate(!colorUpdateEnabled)" id="btn_ColorUpdateToggler">Start</button><br>
 <button onclick="colorUpdateOneshot()" id="btn_ColorUpdateOneshot" style="display: none">Oneshot</button><br>
 
+
 <hr>
 <h2>Configuration</h2>
-<b>Whole Configuration:</b>
+<b>Bootup Configuration:</b>
 <button onclick='doCfgSave(); return false;' id='btn_CfgSave'>Save</button>&nbsp;&nbsp;&nbsp;<button onclick='doCfgLoad(); return false;' id='btn_CfgLoad'>Load</button><br>
 <hr>
 <div><form id="configForm">Loading config...</form></div>
 
 <br>
 
-
+<!--
 <button onclick='doTap(); return false;' id='btn_Tap'>Tap</button><br>
 <div id="bpm"></div>
-
+-->
 
 </body></html>

@@ -40,6 +40,15 @@ module.exports = {
         result = result.slice(0, targetLength)
 		return result
     },
+	
+	setCanvasColors: function(canvas, layout, idx, colors) {
+		for(let i = 0; i < colors.length; i++) {
+			let targetIdx = layout.canvasStart + (layout.reverse ? layout.fxLength - idx - i - 1 : idx + i)
+			if (targetIdx >= layout.canvasStart && targetIdx < layout.canvasStart + layout.fxLength) {
+				canvas[targetIdx] = colors[i]
+			}
+		}
+	},
     
     rgb2html: function(col) {
         return "#" + ((1 << 24) + (col.r << 16) + (col.g << 8) + col.b).toString(16).slice(1);
@@ -77,13 +86,14 @@ module.exports = {
 	
     // TODO hardcoded dropdown based on effect 1 (assuming effect 0 is 'freeze')
     fxselect: function(fxNames, fxList) {
+		var selectedFx = fxList && fxList[1] ? fxList[1].name : ''
 		var html = '<div><b>Select effect:</b><select id="addFxSelector">'
 		for(var idx = 0; idx < fxNames.length; idx++) {
-			var selected = (fxList[1].name == fxNames[idx]) ? " selected" : ""
+			var selected = (selectedFx == fxNames[idx]) ? " selected" : ""
 			html += '<option value="' + idx + '"'+selected+'>' + fxNames[idx] + '</option>'
 		}
 		html += '</select></div>'
-		html += '<script>"use strict";$("#addFxSelector").change(function(){console.log("addFxSelector"+$("#addFxSelector").val());socket.emit("setFx",$("#addFxSelector").val())})</script>'
+		html += '<script>"use strict";$("#addFxSelector").change(function(){console.log("addFxSelector"+$("#addFxSelector").val());socket.emit("browser-setFx",$("#addFxSelector").val())})</script>'
 		return html
 	},
 	
@@ -189,12 +199,12 @@ $(function(){\n"
 		html += "\
 	"+prefix+"noUpdate=false;\n\
 	fxConfigUpdaters["+fxIdx+"]=function(cfg){\n\
-		"+prefix+"_noUpdate=true;\n\
-		console.log('fxConfigWrite->" + metaconfig.name + " got cfg: ');\n\
+		"+prefix+"noUpdate=true;\n\
+		console.log('browserD-sendConfigUpdate->" + metaconfig.name + " got cfg: ');\n\
 		console.log(cfg);\n"
 		html += scriptupdate.join("")
 		html += "\
-		"+prefix+"_noUpdate=false;\n\
+		"+prefix+"noUpdate=false;\n\
 	}\n\
 })\n\
 function "+prefix+"valueChange() {\n\
@@ -203,7 +213,7 @@ function "+prefix+"valueChange() {\n\
 	html += scriptwrite.join("")
 	html += "\
 	var cfg = [{fx:"+fxIdx+",id:0,cfg:{"+scriptconfig.join(',')+"}}];\n\
-	socket.emit('fxConfigWrite', cfg);\n\
+	socket.emit('browser-sendConfigUpdate', cfg);\n\
 }\n\
 </script>\n"
 		return html

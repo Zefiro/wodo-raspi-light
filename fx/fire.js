@@ -53,7 +53,6 @@ function createAllPixels(numLeds) {
 function createTemperatureMap(color) {
     var colors = new Array(256)
 	var colormap
-	console.log("fire: color=" + color)
 	if (color == 'blue') {
 		colormap = [
 			{idx:   0, col: {r:   0, g:   0, b:   0}},
@@ -99,21 +98,18 @@ function createTemperatureMap(color) {
 
 
 
-module.exports = function(_numLeds) { 
+module.exports = function(layout, name) { 
 	var self = {
 
     // FX configuration
-    _inputIndexes: [],
-    numLeds: _numLeds,
-    pixels: [ createAllPixels(_numLeds), createAllPixels(_numLeds) ] ,
-    foo: 0,
+    layout: layout,
+	anim: {
+	},
+	_startTime: new Date(),
+    pixels: [[], []],
 	type: 'fire',
 	color: 'red',
 	temperatureColorMap: [],
-    
-    getInputIndexes: function() {
-        return this._inputIndexes
-    },
     
     getName: function() {
         return "Fire effect"
@@ -121,6 +117,8 @@ module.exports = function(_numLeds) {
 	
 	init: function() {
 		temperatureColorMap = createTemperatureMap(this.color)
+		// using fxLength instead of fxSize since everything outside won't be used anyway
+		self.pixels = [ createAllPixels(self.layout.fxLength), createAllPixels(self.layout.fxLength) ]
 	},
     
     /** idx: the index in the effect list. Can be used to identify parameters.
@@ -159,7 +157,9 @@ module.exports = function(_numLeds) {
     	
 	saveConfigData: function() {
 	    var cfg = { 
-	        foo: this.foo,
+	        anim: {
+				deltaT: new Date() - this._startTime
+			},
 	        pixels: this.pixels,
 			color: this.color,
 			type: this.type,
@@ -168,42 +168,51 @@ module.exports = function(_numLeds) {
 	},
 
 	loadConfigData: function(data) {
-		this.foo = data.foo
 		this.pixels = data.pixels
 		this.color = data.color
 		this.type = data.type
+		if ('anim' in data) {
+			this._startTime = new Date() -  data.anim.deltaT
+		} else {
+    		// previously foo was used with a different calculation -> too lazy to write converter, just ignore
+			this._startTime = new Date()
+		}
         temperatureColorMap = createTemperatureMap(this.color)
 	},
     	    
     
-    renderColors: function(inputColors) {
-        var colors = []
-    	this.foo += 0.1
-    	if (this.foo >= 100) {
-    		this.foo -= 100
+    renderColors: function(canvas) {
+		let deltaT = new Date() - this._startTime
+		let slowDeltaT = deltaT / 200
+		let transition = slowDeltaT % 100
+		let transitionJump = slowDeltaT - transition
+		if (transitionJump != self.anim.lastTransitionJump) {
+			self.anim.lastTransitionJump = transitionJump
     		for(var i = 0; i < this.numLeds; i++) {
     			this.pixels[1][i].counter = this.pixels[0][i].counter
     		}
     		this.pixels[0] = this.pixels[1]
 console.log("Fire: Recreate Pixels")
-    		this.pixels[1] = createAllPixels(this.numLeds)
+    		this.pixels[1] = createAllPixels(self.layout.fxLength)
     	}
-    	for(var i = 0; i < this.numLeds; i++) {
-    		this.pixels[0][i].counter += (Math.random() + 0.5) * util.map(this.pixels[0][i].speed, this.pixels[1][i].speed, this.foo)
+    	for(var i = 0; i < self.layout.fxLength; i++) {
+			// TODO this still relies on calling-frequency instead of Date()
+    		this.pixels[0][i].counter += (Math.random() + 0.5) * util.map(this.pixels[0][i].speed, this.pixels[1][i].speed, transition)
     		if (this.pixels[0][i].counter > 200) this.pixels[0][i].counter = 0
     		var varianz = this.pixels[0][i].counter > 100 ? 200 - this.pixels[0][i].counter : this.pixels[0][i].counter 
-    		var maxTemp = util.map(this.pixels[0][i].maxTemp, this.pixels[1][i].maxTemp, this.foo)
-    		var minTemp = util.map(this.pixels[0][i].minTemp, this.pixels[1][i].minTemp, this.foo)
+    		var maxTemp = util.map(this.pixels[0][i].maxTemp, this.pixels[1][i].maxTemp, transition)
+    		var minTemp = util.map(this.pixels[0][i].minTemp, this.pixels[1][i].minTemp, transition)
     		var temp = util.map(maxTemp, minTemp, varianz)
 			
 			if (this.type == "linear") {
-				temp = 255 * i / (this.numLeds-1)
+				temp = 255 * (i + self.layout.fxStart) / (self.layout.fxSize-1)
 			}
 			
     		temp = Math.max(0, Math.min(Math.floor(temp), 255))
-    		colors[i] = temperatureColorMap[temp]
+			let targetIdx = this.layout.canvasStart + (this.layout.reverse ? self.layout.fxLength - i - 1 : i)
+    		canvas[targetIdx] = temperatureColorMap[temp]
     	}
-    	return colors
+    	return canvas
     },
     
 }

@@ -1,15 +1,11 @@
 var util = require('./fx_util')
 var dict = require("dict")
 
-module.exports = function(_numLeds, name) { return {
+module.exports = function(layout, name) { return {
 
     // FX configuration
-    numLeds: _numLeds,
+    layout: layout,
 	variables: dict({a:0,value:0}),	
-    
-    getInputIndexes: function() {
-        return [2]
-    },
     
     getName: function() {
         return "color shift"
@@ -30,7 +26,7 @@ value = 0;
 		// colors
         colors = []
 		value = variables.get('transpose').get('value')
-        for(var i = 0; i < this.numLeds; i++ ) {
+        for(var i = 0; i < this.layout.fxLength; i++ ) {
             col = inputColors[0][i]
             colors[i] = { r: util.map(col.r, 128, value), g: util.map(col.g, 255, value), b: util.map(col.b, 0, value) }
         }
