@@ -51,6 +51,10 @@ const scenarios = [
 		name: 'zcon',
 		ledCount: 50,
 		canvasSize: 50,
+	}, {
+		name: 'shadow-stein',
+		ledCount: 50,
+		canvasSize: 50,
 	}
 ]
 
@@ -119,6 +123,7 @@ const variables = dict()
 logDActivated = false
 
 ws281x.init(config.ledCount, { "invert": 1, "frequency": 400000 } )
+//ws281x.init(config.ledCount)
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
@@ -577,5 +582,4 @@ if (config.cluster && config.cluster.type == "server") {
 if (config.cluster && config.cluster.type == "client") {
 	cluster.initClient(configManager, config.cluster)
 }
-
 

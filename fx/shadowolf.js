@@ -53,7 +53,7 @@ module.exports = function(layout, configManager) { return {
 
     renderColors: function(canvas, variables) {
 		var timeMs = Date.now() - this._lastTime;
-		console.log(this._mode)
+//		console.log(this._mode)
 		// TODO doesn't respect 'layout' (canvasStart, reverse)
 		for (var i = 0; i < this.layout.fxLength; i++) {
 			switch (this._mode) {
