@@ -73,6 +73,7 @@ var self = {
 	},
 	
 	updateBrowser: function() {
+		if (!self.configManager) return
 		let data = ""
 		if (self.ioServer) {
 			data += "<b>Cluster Server:</b> "

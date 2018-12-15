@@ -223,7 +223,7 @@ $(document).ready(function() {
     }, 50);
 });
 
-
+/*
 var bpmLastTapTime;
 var bpmIsTapping = false;
 var bpmLastDurations = [];
@@ -253,6 +253,7 @@ function doTap() {
 		bpmLastTapTime = Date.now();
 	}
 }
+*/
 
 var titleClickCount = 0
 function clickedTitle() {
@@ -289,6 +290,7 @@ function clickedTitle() {
 <button onclick="setColorUpdate(!colorUpdateEnabled)" id="btn_ColorUpdateToggler">Start</button><br>
 <button onclick="colorUpdateOneshot()" id="btn_ColorUpdateOneshot" style="display: none">Oneshot</button><br>
 
+
 <hr>
 <h2>Configuration</h2>
 <b>Bootup Configuration:</b>
@@ -298,9 +300,9 @@ function clickedTitle() {
 
 <br>
 
-
+<!--
 <button onclick='doTap(); return false;' id='btn_Tap'>Tap</button><br>
 <div id="bpm"></div>
-
+-->
 
 </body></html>
