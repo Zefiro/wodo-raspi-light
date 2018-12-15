@@ -175,7 +175,7 @@ module.exports = function(layout, configManager) {
 	
 	init_rfid: function() {
         var serial = new serialport(this._comPortName, {
-            baudrate: 9600,
+            baudRate: 9600,
             parser: this.parserForRDM6300(),
         });
 		serial.on('open', function (data) {
@@ -327,8 +327,8 @@ module.exports = function(layout, configManager) {
 	loadConfigData: function(data) {
 	},
     
-    renderColors: function(inputColors, variables) {
-    	return inputColors[0]
+    renderColors: function(canvas, variables) {
+    	return canvas
     },
     
 }
