@@ -1,11 +1,24 @@
 var util = require('./fx_util')
 
-function createPixel(temp, name) {
+function createPixel(temp) {
 	return {
 		maxTemp: temp,
 		minTemp: Math.max(5, temp / 10),
-		speed: Math.random()*temp/8 + 2,
+//		speed: Math.random()*temp/8 + 2,
+		speed: Math.random()*temp/128 + 1,
 		counter: Math.random()*200
+	}
+}
+
+function createSmoothedPixel(pixel1, pixel2) {
+	var temp2 = rndTemp()
+	var temp = util.map(pixel1.maxTemp, pixel2.maxTemp, 50)
+//	temp = util.map(temp, temp2, 10)
+	return {
+		maxTemp: temp,
+		minTemp: Math.max(5, temp / 10),
+		speed: util.map(pixel1.speed, pixel2.speed, 50),
+		counter: util.map(pixel1.counter, pixel2.counter, 50),
 	}
 }
 
@@ -16,6 +29,7 @@ function createPixels(pixels, i, j) {
 	var temp = util.map(pixels[i].maxTemp, pixels[j].maxTemp, 50)
 	temp = util.map(temp, temp2, 10)
 	pixels[m] = createPixel(temp)
+    pixels[m] = createSmoothedPixel(pixels[i], pixels[j])
 	createPixels(pixels, i, m)
 	createPixels(pixels, m, j)
 }
@@ -178,6 +192,7 @@ module.exports = function(layout, name) {
     			this.pixels[1][i].counter = this.pixels[0][i].counter
     		}
     		this.pixels[0] = this.pixels[1]
+console.log("Fire: Recreate Pixels")
     		this.pixels[1] = createAllPixels(self.layout.fxLength)
     	}
     	for(var i = 0; i < self.layout.fxLength; i++) {
