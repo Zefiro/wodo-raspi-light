@@ -157,10 +157,12 @@ app.get('/cmd/:sId', async function(req, res) {
 	let rdns = await util.promisify(dns.reverse)(ip)
 	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "setTime") {
+		configManager.visualToast()
 		let stdout = await runCommand('./setTime.sh')
 		res.send(stdout)
 	} else if (sId == "shutdown") {
 		if (req.query.pwd == 'pi') { // low-value password, reachable only from my Intranet
+			configManager.visualToast()
 			let stdout = await runCommand('./shutdown.sh')
 			res.send(stdout)
 		} else {
@@ -406,7 +408,28 @@ var configManager = {
 			io.emit("toast", txt)
 		}
 	},
-	zconListRead: function() {}
+	zconListRead: function() {},
+	visualToast: function() {
+		if (this['active']) {
+			logger.warn("Visualtoast: already active, skipped")
+			return
+		}
+		logger.info("Visualtoast: triggered")
+		this.active = true
+        this.effect = addEffect('alarm')
+		configManager.fxList.unshift(this.effect)
+		setTimeout(() => {
+			if (configManager.fxList[0] === this.effect) {
+				logger.info("Visualtoast: finished")
+				configManager.fxList.shift()
+				configManager.update()
+			} else {
+				logger.warn("Visualtoast: finished, but toast effect had already been removed")
+			}
+			this.active = false
+		}, 1000)
+		configManager.update()
+	},
 }
 
 function addEffect(fxName, fxVarName) {
