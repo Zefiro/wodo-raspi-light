@@ -64,9 +64,10 @@ window.addEventListener('error', function (evt) {
   
   socket.on('browserD-clientId', function(data){
   console.log(socket)
-		clientId = data
+		clientId = data.id
 		console.log("Connected to server as client " + clientId)
 		$('#connectionStatus').html('(<span title="Connected as ' + socket.id + '">Connected</span>)');
+		$('#title').html(data.config.displayName);
   })
 
   socket.on('connect', function(data){

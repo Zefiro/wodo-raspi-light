@@ -41,6 +41,7 @@ const scenarios = [
 		},
 	}, {
 		name: 'regalbrett',
+		displayName: 'World Domination - Regalbrett',
 		cluster: {
 			type: 'server',
 		},
@@ -48,6 +49,7 @@ const scenarios = [
 		canvasSize: 136,
 	}, {
 		name: 'regalbrett2',
+		displayName: 'World Domination - Regalbrett2',
 		cluster: {
 			type: 'client',
 			url: 'http://regalbrett.dyn.cave.zefiro.de',
@@ -58,10 +60,12 @@ const scenarios = [
 		canvasSize: 136,
 	}, {
 		name: 'zcon',
+		displayName: 'Shiny things on ZCon',
 		ledCount: 50,
 		canvasSize: 50,
 	}, {
 		name: 'shadow-stein',
+		displayName: 'Wolfshöhle - Stein',
 		hardware: {
 			invert: 0,
 			frequency: 400000,
@@ -75,7 +79,7 @@ const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm'
 
 
 
-function addLogger(name, level = 'debug', label = name) {
+function addNamedLogger(name, level = 'debug', label = name) {
     let { format } = require('logform');
 	let getFormat = (label, colorize = false) => {
 		let nop = format((info, opts) => { return info })
@@ -102,10 +106,10 @@ function addLogger(name, level = 'debug', label = name) {
 	  ]
 	})
 }
-addLogger('main', 'debug')
-addLogger('cluster-server', 'debug', 'ClusterD')
-addLogger('cluster-client', 'debug', 'ClusterC')
-addLogger('fx_freeze', 'debug', 'FX Freeze')
+addNamedLogger('main', 'debug')
+addNamedLogger('cluster-server', 'debug', 'ClusterD')
+addNamedLogger('cluster-client', 'debug', 'ClusterC')
+addNamedLogger('fx_freeze', 'debug', 'FX Freeze')
 
 const logger = winston.loggers.get('main')
 
@@ -138,7 +142,7 @@ ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": co
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
-    await logger.error("Bye, Bye...")
+    await logger.error("Program terminated - Bye, Bye...")
     ws281x.reset()
     process.nextTick(function () { process.exit(0) })
 })
@@ -296,7 +300,7 @@ io.of('/browser').on('connection', async (socket) => {
 
   socket.on('browser-subscribe', () => {
 	logger.info("Identified as browser: socket.id=" + socket.id)
-    socket.emit('browserD-clientId', socket.id)
+    socket.emit('browserD-clientId', { id: socket.id, config: { displayName: config.displayName } })
   })
   
   
