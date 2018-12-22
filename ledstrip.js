@@ -71,7 +71,7 @@ const scenarios = [
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, shippo, misan
-const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
+const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'bars']
 
 
 
@@ -584,7 +584,7 @@ function fullDisco() {
 logger.info('Press <ctrl>+C to exit.')
 
 
-if (false) {
+if (config.name == 'zcon') {
     // only for ZCon
     fxList[0] = addEffect('fx_rfid')
     fxList[1] = addEffect('fire')
@@ -593,19 +593,10 @@ if (false) {
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
     doCfgLoad()
-/*	
+/*
 	fxList.length = 0
 	fxList[0] = addEffect('freeze')
-	fxList[1] = addEffect('rainbow')
-	fxList[1].fx._segment.start = 0
-	fxList[1].fx._segment.length = 25
-	fxList[1].fx._segment.start2 = 0
-/*
-	fxList[2] = addEffect('rainbow', 'rainbow2')
-	fxList[2].fx._segment.start = 25
-	fxList[2].fx._segment.length = 25
-	fxList[2].fx._segment.start2 = 25
-	fxList[2].fx._segment.reverse = true
+	fxList[1] = addEffect('bars')
 */
 }
 
