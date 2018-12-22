@@ -33,6 +33,7 @@ var colors = new Array()
 const scenarios = [
 	{
 		name: '[default]', // referenced by index 0, not by name
+		displayName: '(default name)',
 		ledCount: 50,
 		canvasSize: 50,
 		hardware: {
