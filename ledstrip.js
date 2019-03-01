@@ -65,6 +65,11 @@ const scenarios = [
 		ledCount: 50,
 		canvasSize: 50,
 	}, {
+		name: 'mendra',
+		displayName: 'Burg Drachenstein',
+		ledCount: 50,
+		canvasSize: 50,
+	}, {
 		name: 'shadow-stein',
 		displayName: 'Wolfshöhle - Stein',
 		hardware: {
