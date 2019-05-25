@@ -175,7 +175,7 @@ async function runCommand(cmd) {
 app.get('/cmd/:sId', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	let rdns = await util.promisify(dns.reverse)(ip)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "setTime") {
 		configManager.visualToast()
@@ -199,7 +199,7 @@ app.get('/cmd/:sId', async function(req, res) {
 app.get('/scenario/:sId', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	let rdns = await util.promisify(dns.reverse)(ip)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Scenario %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "alarm") {
 		fxList.length = 0
@@ -259,9 +259,9 @@ app.get('/slave/:slaveId/:type', async function(req, res) {
 	var slaveIp = req.ip
 	var slaveId = req.params.slaveId
 	var slaveType = req.params.type
-	let rdns = await util.promisify(dns.reverse)(slaveIp)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.debug("Slave #%s (%s / %s) pinged (type: %s)", slaveId, slaveIp, rdns, slaveType)
-	
+
 	var slaveDict = variables.get('Slave' + slaveId)
 	if (slaveDict) {
 		slaveDict.set('slaveIp', slaveIp)
@@ -300,7 +300,7 @@ io.of('/browser').on('connection', async (socket) => {
 	// TODO this 'await' leads to loosing the first messages sent :(
 	// this variant avoids this, but messes with the ordering of the logs
   (async () => {
-	  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
+	  let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
   })()
 
