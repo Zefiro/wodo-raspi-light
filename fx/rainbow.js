@@ -4,7 +4,6 @@ module.exports = function(layout, name) { return {
 
     // FX configuration
 	layout: layout,
-	_fps: 30,
 	anim: {},
 	/** color offset, 0..255 */
 	_offset: 46,

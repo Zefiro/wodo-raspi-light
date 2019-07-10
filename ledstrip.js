@@ -33,6 +33,7 @@ var colors = new Array()
 const scenarios = [
 	{
 		name: '[default]', // referenced by index 0, not by name
+		displayName: '(default name)',
 		ledCount: 50,
 		canvasSize: 50,
 		hardware: {
@@ -41,6 +42,7 @@ const scenarios = [
 		},
 	}, {
 		name: 'regalbrett',
+		displayName: 'World Domination - Regalbrett',
 		cluster: {
 			type: 'server',
 		},
@@ -48,6 +50,7 @@ const scenarios = [
 		canvasSize: 136,
 	}, {
 		name: 'regalbrett2',
+		displayName: 'World Domination - Regalbrett2',
 		cluster: {
 			type: 'client',
 			url: 'http://regalbrett.dyn.cave.zefiro.de',
@@ -58,10 +61,17 @@ const scenarios = [
 		canvasSize: 136,
 	}, {
 		name: 'zcon',
+		displayName: 'Shiny things on ZCon',
+		ledCount: 50,
+		canvasSize: 50,
+	}, {
+		name: 'mendra',
+		displayName: 'Burg Drachenstein',
 		ledCount: 50,
 		canvasSize: 50,
 	}, {
 		name: 'shadow-stein',
+		displayName: 'Wolfshöhle - Stein',
 		hardware: {
 			invert: 0,
 			frequency: 400000,
@@ -71,11 +81,11 @@ const scenarios = [
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, shippo, misan
-const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm']
+const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'bars']
 
 
 
-function addLogger(name, level = 'debug', label = name) {
+function addNamedLogger(name, level = 'debug', label = name) {
     let { format } = require('logform');
 	let getFormat = (label, colorize = false) => {
 		let nop = format((info, opts) => { return info })
@@ -102,10 +112,10 @@ function addLogger(name, level = 'debug', label = name) {
 	  ]
 	})
 }
-addLogger('main', 'debug')
-addLogger('cluster-server', 'debug', 'ClusterD')
-addLogger('cluster-client', 'debug', 'ClusterC')
-addLogger('fx_freeze', 'debug', 'FX Freeze')
+addNamedLogger('main', 'debug')
+addNamedLogger('cluster-server', 'debug', 'ClusterD')
+addNamedLogger('cluster-client', 'debug', 'ClusterC')
+addNamedLogger('fx_freeze', 'debug', 'FX Freeze')
 
 const logger = winston.loggers.get('main')
 
@@ -138,7 +148,7 @@ ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": co
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
-    await logger.error("Bye, Bye...")
+    await logger.error("Program terminated - Bye, Bye...")
     ws281x.reset()
     process.nextTick(function () { process.exit(0) })
 })
@@ -165,13 +175,15 @@ async function runCommand(cmd) {
 app.get('/cmd/:sId', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	let rdns = await util.promisify(dns.reverse)(ip)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "setTime") {
+		configManager.visualToast()
 		let stdout = await runCommand('./setTime.sh')
 		res.send(stdout)
 	} else if (sId == "shutdown") {
 		if (req.query.pwd == 'pi') { // low-value password, reachable only from my Intranet
+			configManager.visualToast()
 			let stdout = await runCommand('./shutdown.sh')
 			res.send(stdout)
 		} else {
@@ -187,7 +199,7 @@ app.get('/cmd/:sId', async function(req, res) {
 app.get('/scenario/:sId', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var sId = req.params.sId
-	let rdns = await util.promisify(dns.reverse)(ip)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Scenario %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "alarm") {
 		fxList.length = 0
@@ -247,9 +259,9 @@ app.get('/slave/:slaveId/:type', async function(req, res) {
 	var slaveIp = req.ip
 	var slaveId = req.params.slaveId
 	var slaveType = req.params.type
-	let rdns = await util.promisify(dns.reverse)(slaveIp)
+	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.debug("Slave #%s (%s / %s) pinged (type: %s)", slaveId, slaveIp, rdns, slaveType)
-	
+
 	var slaveDict = variables.get('Slave' + slaveId)
 	if (slaveDict) {
 		slaveDict.set('slaveIp', slaveIp)
@@ -288,13 +300,13 @@ io.of('/browser').on('connection', async (socket) => {
 	// TODO this 'await' leads to loosing the first messages sent :(
 	// this variant avoids this, but messes with the ordering of the logs
   (async () => {
-	  let rdns = await util.promisify(dns.reverse)(socket.client.conn.remoteAddress)
+	  let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
   })()
 
   socket.on('browser-subscribe', () => {
 	logger.info("Identified as browser: socket.id=" + socket.id)
-    socket.emit('browserD-clientId', socket.id)
+    socket.emit('browserD-clientId', { id: socket.id, config: { displayName: config.displayName } })
   })
   
   
@@ -417,7 +429,28 @@ var configManager = {
 			io.emit("toast", txt)
 		}
 	},
-	zconListRead: function() {}
+	zconListRead: function() {},
+	visualToast: function() {
+		if (this['active']) {
+			logger.warn("Visualtoast: already active, skipped")
+			return
+		}
+		logger.info("Visualtoast: triggered")
+		this.active = true
+        this.effect = addEffect('alarm')
+		configManager.fxList.unshift(this.effect)
+		setTimeout(() => {
+			if (configManager.fxList[0] === this.effect) {
+				logger.info("Visualtoast: finished")
+				configManager.fxList.shift()
+				configManager.update()
+			} else {
+				logger.warn("Visualtoast: finished, but toast effect had already been removed")
+			}
+			this.active = false
+		}, 1000)
+		configManager.update()
+	},
 }
 
 function addEffect(fxName, fxVarName) {
@@ -561,7 +594,7 @@ function fullDisco() {
 logger.info('Press <ctrl>+C to exit.')
 
 
-if (false) {
+if (config.name == 'zcon') {
     // only for ZCon
     fxList[0] = addEffect('fx_rfid')
     fxList[1] = addEffect('fire')
@@ -570,19 +603,10 @@ if (false) {
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
     doCfgLoad()
-/*	
+/*
 	fxList.length = 0
 	fxList[0] = addEffect('freeze')
-	fxList[1] = addEffect('rainbow')
-	fxList[1].fx._segment.start = 0
-	fxList[1].fx._segment.length = 25
-	fxList[1].fx._segment.start2 = 0
-/*
-	fxList[2] = addEffect('rainbow', 'rainbow2')
-	fxList[2].fx._segment.start = 25
-	fxList[2].fx._segment.length = 25
-	fxList[2].fx._segment.start2 = 25
-	fxList[2].fx._segment.reverse = true
+	fxList[1] = addEffect('bars')
 */
 }
 

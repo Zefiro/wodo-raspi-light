@@ -58,15 +58,16 @@ window.addEventListener('error', function (evt) {
   
   socket.on('browserD-sendConfig', function(msg){
     console.log("Got new config HTML from server:")
-	console.log(msg)
+//	console.log(msg)
     $('#configForm').html(msg);
   });
   
   socket.on('browserD-clientId', function(data){
   console.log(socket)
-		clientId = data
+		clientId = data.id
 		console.log("Connected to server as client " + clientId)
 		$('#connectionStatus').html('(<span title="Connected as ' + socket.id + '">Connected</span>)');
+		$('#title').html(data.config.displayName);
   })
 
   socket.on('connect', function(data){
@@ -116,7 +117,7 @@ window.addEventListener('error', function (evt) {
 
 var color = ['#000000', '#100000', '#200000', '#300000'];
 var colorUpdateEnabled = false;
-var pendingColorUpdate = false;
+var pendingColorUpdate = 0;
 
 function createTable() {
     var table = $('<table class="ledstrip"></table>');
@@ -127,7 +128,7 @@ function createTable() {
     }
     table.append(row);
     $('#sim').html(table);
-    pendingColorUpdate = false;
+    pendingColorUpdate = 0;
 }
 
 socket.on('browserD-sendPreview', function(data){
@@ -136,8 +137,15 @@ socket.on('browserD-sendPreview', function(data){
 });
 
 function refreshColor() {
-    pendingColorUpdate = true;
-    socket.emit('browser-requestPreview', 0);
+	if (!socket.connected) {
+		console.log("refreshColor: socket not connected, skipped")
+		return
+	}
+	let maxWait = 1000
+	if (new Date() - pendingColorUpdate > maxWait) {
+		pendingColorUpdate = new Date();
+		socket.emit('browser-requestPreview', 0);
+	}
 }
 
 function colorUpdateOneshot() {
@@ -153,9 +161,11 @@ function setColorUpdate(newColorUpdateEnabled) {
         refreshColor();
         $('#btn_ColorUpdateToggler').text("Stop");
         $('#sim').fadeIn(300);
+		history.replaceState(null, null, '#preview')
     } else {
         $('#btn_ColorUpdateToggler').text("Start");
         $('#sim').fadeOut(800);
+		history.replaceState(null, null, '#')
     }
 }
 
@@ -171,7 +181,7 @@ function checkPageRefresh() {
             } else {
                 // page has changed - reload
                 console.log("$Self changed, reloading");
-                window.location.replace(window.location.href);
+                window.location.reload();
             }
         } else {
             // load error - try again later
@@ -212,12 +222,12 @@ function doCfgLoad() {
 }
 
 $(document).ready(function() {
-    setColorUpdate(false);
+	setColorUpdate(window.location.hash.includes('preview'))
     socket.emit('browser-subscribe')
-    socket.emit('browser-requestReadConfig');
-    checkPageRefresh();
+    socket.emit('browser-requestReadConfig')
+    checkPageRefresh()
     window.setInterval(function() {
-        if (colorUpdateEnabled && !pendingColorUpdate) {
+        if (colorUpdateEnabled) {
             refreshColor();
         }
     }, 50);
@@ -270,7 +280,7 @@ function clickedTitle() {
 </head>
 <body>
 
-<h1 id="title" onclick="clickedTitle()">World Domination - Regalbrett</h1>
+<h1 id="title" onclick="clickedTitle()">Taking over the world, please wait...</h1>
 
 <div id="cmd" style="display:none; margin: 2em">
 <button onclick="location.href='/cmd/setTime'">reset Time</button>

@@ -2,9 +2,10 @@ module.exports = {
     clone: require('clone'),
 	
     /** Returns an integer between min..max (inclusive) */
-    // http://stackoverflow.com/a/1527820
     getRandomInt: function(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+		min = Math.ceil(min);
+		max = Math.floor(max);
+		return Math.floor(Math.random() * (max - min + 1)) + min;
     },
 
     /** Returns a value between a and b, linearly depending on procent, with procent=0 -> a and procent=100 -> b */

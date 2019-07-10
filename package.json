@@ -21,13 +21,13 @@
     "express": "*",
     "http": "*",
     "i2c-bus": "*",
-    "lodash": "^4.17.11",
+    "lodash": "*",
     "pn532": "*",
     "q": "*",
     "rpi-gpio": "*",
     "serialport": "*",
     "socket.io": "*",
     "socket.io-client": "*",
-    "winston": "^3.1.0"
+    "winston": "*"
   }
 }
