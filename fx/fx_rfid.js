@@ -14,6 +14,29 @@ var Q = require('q')
  *
  * not working? See who's using it:
  *   sudo fuser /dev/ttyAMA0
+ *
+ *
+ * Prepare for an event
+ *----------------------
+ * - connect either rfid or nfc reader
+ *   - select which one in function init()
+ *   - update filter in sendUserlistToBrowser
+ * - prepare data file (tbd)
+ *   - update auto-fill in receiveSerial() for !user-branch
+ *   - take previous userlist-(event|year).json and copy to userlist.json
+ *   - for each card, hold it to the reader, enter 'day' and 'paid', click save
+ *   - backup: copy userlist.json to userlist-(event|year)-precon.json
+ *   - optional backup: copy userlist.json to userlist-(event|year)-xxxsave.json
+ *
+ * After the event
+ *-----------------
+ * - copy userlist.json to userlist-(event|year).json
+ *
+ * TODO for 2019
+ * + repair rdm parser, with the new parser format
+ * - perhaps move "repeated detection" into receiveSerial, not inside the parser
+ * - prepare the userlist (and update the docu on that)
+ * - centralize strings ('2018', perhaps more?) and rfid/nfc type
  */
 
 /*
@@ -73,8 +96,8 @@ module.exports = function(layout, configManager) {
 	            console.log("fx_rfid: parserForRDM6300: timeout reached, resetting buffer")
             }			
             lastReceivedTime = now
-//            console.log("Raw: |" + buffer + "| (" + buffer.length + ")")
-//            for(var i = 0; i < buffer.length; i++) console.log("#"+i+": |"+buffer[i]+"|")
+//console.log("Raw: |" + buffer + "| (" + buffer.length + ")")
+//for(var i = 0; i < buffer.length; i++) console.log("#"+i+": |"+buffer[i]+"|")
             data = Buffer.concat([data,buffer])
             while (data.length >= length) {
 				if (data[0] !== 2 || data[13] !== 3) {
@@ -115,6 +138,7 @@ module.exports = function(layout, configManager) {
 	},
 
     receiveSerial: function(data) {
+//console.log(data)
 		data = data.replace(/(\r\n|\n|\r)/gm, "")
 		var user = null
 		var users = this.variables.get('users').users
@@ -122,7 +146,7 @@ module.exports = function(layout, configManager) {
 		    if (value.rfid === data) user = value
 		})
 		if (!user) {
-			user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2018' }
+			user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2019' }
 			console.log("New user found (rfid='" + user.rfid + "')")
 			users.push(user)
    			this._configManager.toast("New user found (rfid='" + user.rfid + "')")
@@ -170,7 +194,7 @@ module.exports = function(layout, configManager) {
 			this.init_nfc();
 		}
 		this._loadUserlist()
-		this._configManager.zconListRead = this.zconListRead.bind(this)
+		this._configManager.sendUserlistToBrowser = this.sendUserlistToBrowser.bind(this)
 	},
 	
 	init_rfid: function() {
@@ -186,7 +210,17 @@ module.exports = function(layout, configManager) {
            console.log('fx_rfid: failed to open serial port ' + this._comPortName + ': ' + error)
 		   this._ready = false
         }.bind(this));
-        serial.on('data', this.receiveSerial.bind(this));
+		// 2019-07 quick repair hack for the changed implementation of serialport
+		// parser handling was changed, options.parser is replaced with serial.pipe and a changed interface
+		let serialReceive = this.receiveSerial.bind(this)
+		let emiter = {
+			emit: function(key, data) {
+				// "key" will be "data"
+				serialReceive(data)
+			}
+		}
+		let parser = this.parserForRDM6300()
+        serial.on('data', data => parser(emiter, data))
 	},
 
 	init_nfc: function() {
@@ -202,13 +236,13 @@ module.exports = function(layout, configManager) {
 		}).bind(this));
 	},
 	
-	zconListRead: function(socket, data) {
+	sendUserlistToBrowser: function(socket, data) {
 		var users = util.clone(this.variables.get('users'))		
 		users.users = users.users.filter(user => {
-			return user.event == "zcon2018" || user.da == 1
+			return user.event == "zcon2019" || user.da == 1
 		})
-		console.log("zconListRead: printing list of users (" + users.users.length + " of " + this.variables.get('users').users.length + ")")
-		socket.emit("zconListWrite", users)
+		console.log("sendUserlistToBrowser: printing list of users (" + users.users.length + " of " + this.variables.get('users').users.length + ")")
+		socket.emit("userlistToBrowser", users)
 	},
 
 	_loadUserlist: function() {

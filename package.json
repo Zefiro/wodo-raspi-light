@@ -10,10 +10,11 @@
   },
   "main": "ledstrip.js",
   "scripts": {
-    "start": "sudo node ledstrip.js"
+    "start": "sudo node ledstrip.js",
+    "postinstall": "cd node_modules && ln -s ../../node-rpi-ws281x-native ."
   },
   "dependencies": {
-    "axios": "*",
+    "axios": "^0.19.0",
     "clone": "*",
     "compression": "*",
     "dict": "*",

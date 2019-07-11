@@ -256,15 +256,15 @@ app.get('/scenario/:sId', async function(req, res) {
 });
 
 app.get('/slave/:slaveId/:type', async function(req, res) {
-	var slaveIp = req.ip
+	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
 	var slaveId = req.params.slaveId
 	var slaveType = req.params.type
 	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
-	logger.debug("Slave #%s (%s / %s) pinged (type: %s)", slaveId, slaveIp, rdns, slaveType)
+	logger.debug("Slave #%s (%s / %s) pinged (type: %s)", slaveId, ip, rdns, slaveType)
 
 	var slaveDict = variables.get('Slave' + slaveId)
 	if (slaveDict) {
-		slaveDict.set('slaveIp', slaveIp)
+		slaveDict.set('slaveIp', ip)
 		slaveDict.set('slaveId', slaveId)
 		slaveDict.set('slaveType', slaveType)
 		slaveDict.set('lastPing', Date.now())
@@ -300,8 +300,9 @@ io.of('/browser').on('connection', async (socket) => {
 	// TODO this 'await' leads to loosing the first messages sent :(
 	// this variant avoids this, but messes with the ordering of the logs
   (async () => {
+	  let ip = socket.client.conn.remoteAddress
 	  let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
-	  logger.info('a user connected from %s (%s)", socket.id=%s', socket.client.conn.remoteAddress, rdns, socket.id)
+	  logger.info('a user connected from %s (%s)", socket.id=%s', ip, rdns, socket.id)
   })()
 
   socket.on('browser-subscribe', () => {
@@ -317,8 +318,9 @@ io.of('/browser').on('connection', async (socket) => {
 	cluster.updateBrowser()
   })
   
-  socket.on('zconListRead', (data) => {
-	  configManager.zconListRead(socket, data)
+  socket.on('getUserlist', (data) => {
+console.log("socket received: getUserlist", data)
+	  configManager.sendUserlistToBrowser(socket, data)
   })
   
   socket.on('browser-sendConfigUpdate', (data) => {
@@ -415,7 +417,7 @@ var configManager = {
 		sendFullConfig();
 	},
 	updateUsers: function() {
-		configManager.zconListRead(io, {})
+		configManager.sendUserlistToBrowser(io.of('/browser'), {})
 	},
 	sendToBrowser: function(id, data) {
 	    io.of('/browser').emit(id, data)
@@ -429,7 +431,7 @@ var configManager = {
 			io.emit("toast", txt)
 		}
 	},
-	zconListRead: function() {},
+	sendUserlistToBrowser: function() {},
 	visualToast: function() {
 		if (this['active']) {
 			logger.warn("Visualtoast: already active, skipped")

@@ -186,13 +186,14 @@ module.exports = function(layout, name) {
 		let slowDeltaT = deltaT / 200
 		let transition = slowDeltaT % 100
 		let transitionJump = slowDeltaT - transition
+//console.log(transition)
 		if (transitionJump != self.anim.lastTransitionJump) {
 			self.anim.lastTransitionJump = transitionJump
     		for(var i = 0; i < this.numLeds; i++) {
     			this.pixels[1][i].counter = this.pixels[0][i].counter
     		}
     		this.pixels[0] = this.pixels[1]
-console.log("Fire: Recreate Pixels")
+//console.log("Fire: Recreate Pixels")
     		this.pixels[1] = createAllPixels(self.layout.fxLength)
     	}
     	for(var i = 0; i < self.layout.fxLength; i++) {

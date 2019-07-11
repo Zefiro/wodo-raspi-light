@@ -69,7 +69,7 @@ td.outeruserlist {
 	});
   })
   
-socket.on('zconListWrite', function(data){
+socket.on('userlistToBrowser', function(data){
 	createTable(data)
 });
 
@@ -146,7 +146,7 @@ function checkPageRefresh() {
 
 $(document).ready(function() {
     socket.emit('fxClientId')
-    socket.emit('zconListRead', 0);
+    socket.emit('getUserlist', 0);
     checkPageRefresh();
 });
 
