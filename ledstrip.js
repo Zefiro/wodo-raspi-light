@@ -62,13 +62,9 @@ const scenarios = [
 	}, {
 		name: 'zcon',
 		displayName: 'Shiny things on ZCon',
-		ledCount: 50,
-		canvasSize: 50,
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
-		ledCount: 50,
-		canvasSize: 50,
 	}, {
 		name: 'shadow-stein',
 		displayName: 'Wolfshöhle - Stein',
