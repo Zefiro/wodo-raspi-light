@@ -29,7 +29,7 @@ function createPixels(pixels, i, j) {
 	var temp = util.map(pixels[i].maxTemp, pixels[j].maxTemp, 50)
 	temp = util.map(temp, temp2, 10)
 	pixels[m] = createPixel(temp)
-    pixels[m] = createSmoothedPixel(pixels[i], pixels[j])
+//    pixels[m] = createSmoothedPixel(pixels[i], pixels[j])
 	createPixels(pixels, i, m)
 	createPixels(pixels, m, j)
 }
@@ -77,8 +77,8 @@ function createTemperatureMap(color) {
 			{idx:  25, col: {r:  50, g:   0, b:   0}},
 			{idx: 100, col: {r: 255, g:   0, b:   0}},
 			{idx: 220, col: {r: 255, g: 128, b:   0}},
-			{idx: 245, col: {r: 255, g: 180, b:  32}},
-			{idx: 256, col: {r: 255, g: 230, b: 200}},
+			{idx: 245, col: {r: 255, g: 170, b:  32}},
+			{idx: 256, col: {r: 255, g: 200, b:  70}},
 		]
 	}
 
@@ -110,6 +110,8 @@ module.exports = function(layout, name) {
 	type: 'fire',
 	color: 'red',
 	temperatureColorMap: [],
+	sparks: [],
+
     
     getName: function() {
         return "Fire effect"
@@ -132,6 +134,7 @@ module.exports = function(layout, name) {
 		var typeValues = {
 			fire: 'fire',
 			linear: "linear",
+			linearspark: "linear spark",
 		}
 		var metaconfig = { c: [
 			{ name: 'color', type: 'combo', id: 'color', desc: 'Color of the effect', css:'width:150px;', combo: colorValues },
@@ -193,9 +196,43 @@ module.exports = function(layout, name) {
     			this.pixels[1][i].counter = this.pixels[0][i].counter
     		}
     		this.pixels[0] = this.pixels[1]
-//console.log("Fire: Recreate Pixels")
+console.log("Fire: Recreate Pixels")
     		this.pixels[1] = createAllPixels(self.layout.fxLength)
     	}
+		
+		// 100% at the center, less % at both sides of it
+		let sparkWidth = [100, 30]
+		let sparkLifecycle = [[0, 0], [500, 100], [600, 100], [2000, 0]]
+
+		if (Math.random() < 0.03) {
+			let spark = {
+				enabled: true,
+				x: Math.floor(Math.random() *  self.layout.fxLength),
+				temp: 255,
+				startTime: new Date(),
+				maxAgeMs: 2800,
+			}
+			console.log("new spark at " + spark.x)
+			this.sparks.push(spark)
+		}
+		let sparkMap = new Array(self.layout.fxLength).fill(0)
+		for(let i = 0; i < this.sparks.length; i++) {
+			if (!this.sparks[i].enabled) continue
+			let age = new Date() - this.sparks[i].startTime
+			let ageFactor  = util.mapLifecycle(sparkLifecycle, age)
+			for(let d = -(sparkWidth.length-1); d < sparkWidth.length; d++) {
+				let x2 = this.sparks[i].x + d
+				if (x2 >= 0 && x2 < self.layout.fxLength) {
+					let da = Math.abs(d)
+					sparkMap[x2] = util.map(0, util.map(0, this.sparks[i].temp, sparkWidth[da]), ageFactor)
+				}
+			}
+			if (age >= this.sparks[i].maxAgeMs) {
+				this.sparks[i].enabled = false
+			}
+		}
+		this.sparks = this.sparks.filter(spark => spark.enabled)
+		
     	for(var i = 0; i < self.layout.fxLength; i++) {
 			// TODO this still relies on calling-frequency instead of Date()
     		this.pixels[0][i].counter += (Math.random() + 0.5) * util.map(this.pixels[0][i].speed, this.pixels[1][i].speed, transition)
@@ -205,14 +242,21 @@ module.exports = function(layout, name) {
     		var minTemp = util.map(this.pixels[0][i].minTemp, this.pixels[1][i].minTemp, transition)
     		var temp = util.map(maxTemp, minTemp, varianz)
 			
+			temp = Math.max(temp, sparkMap[i]);
+			
 			if (this.type == "linear") {
 				temp = 255 * (i + self.layout.fxStart) / (self.layout.fxSize-1)
 			}
 			
-    		temp = Math.max(0, Math.min(Math.floor(temp), 255))
+			if (this.type == "linearspark") {
+				temp = util.map(0, 255, util.mapLifecycle(sparkLifecycle, util.map2(0, 2800, 0, self.layout.fxLength, i)))
+			}
+
+			temp = Math.max(0, Math.min(Math.floor(temp), 255))
 			let targetIdx = this.layout.canvasStart + (this.layout.reverse ? self.layout.fxLength - i - 1 : i)
     		canvas[targetIdx] = temperatureColorMap[temp]
     	}
+
     	return canvas
     },
     

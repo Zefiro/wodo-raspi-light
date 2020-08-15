@@ -14,6 +14,13 @@ module.exports = {
         return Math.floor((a * (100-procent) + b * procent) / 100)
     },
 
+    /** Returns an int value between a and b, linearly depending where z is between x and y */
+    map2: function(a, b, x, y, z) {
+		if (z <= x) return a
+		if (z >= y) return b
+		return Math.floor((b - a) * (z - x) / (y - x) + a)
+    },
+
     /** Returns a color, linearly mapped in RGB space between col1 and col2, with procent 0..100 */
     mapColor: function(col1, col2, procent) {
         var result = {r: 0, g: 0, b: 0}
@@ -22,6 +29,18 @@ module.exports = {
         result.b = this.map(col1.b, col2.b, procent)
         return result
     },
+	
+	mapLifecycle: function(lifecycle, index) {
+		if (lifecycle[0][0] >= index) return lifecycle[0][1]
+		if (lifecycle[lifecycle.length-1][0] <= index) return lifecycle[lifecycle.length-1][1]
+		let i = 0
+		// this gives an "i" which is above (or same as) "index", and i>0
+		while (i < lifecycle.length && lifecycle[i][0] < index) i++
+		if (lifecycle[i][0] == index) return lifecycle[i][1]
+		let di = lifecycle[i][0] - lifecycle[i-1][0]
+		let di2 = 100 * (index - lifecycle[i-1][0]) / di
+		return this.map(lifecycle[i-1][1], lifecycle[i][1], di2)
+	},
 	
 	/** Returns an array of colors of length targetLength based on copying newColors onto existingColors starting at index startIndex. Missing colors are filled with black.
 	 *  Usage to ensure a certain length: mergeColors(targetLength, colors)
