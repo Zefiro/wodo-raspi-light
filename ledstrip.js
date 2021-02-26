@@ -39,7 +39,9 @@ const scenarios = [
 		hardware: {
 			invert: 1,
 			frequency: 400000,
+			strip_type: 0x00001008, // BRG
 		},
+		defaultfx: 'freeze',
 	}, {
 		name: 'regalbrett',
 		displayName: 'World Domination - Regalbrett',
@@ -65,6 +67,8 @@ const scenarios = [
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
+		ledCount: 100,
+		defaultfx: 'fx_gpio',
 	}, {
 		name: 'shadow-stein',
 		displayName: 'Wolfshöhle - Stein',
@@ -112,6 +116,7 @@ addNamedLogger('main', 'debug')
 addNamedLogger('cluster-server', 'debug', 'ClusterD')
 addNamedLogger('cluster-client', 'debug', 'ClusterC')
 addNamedLogger('fx_freeze', 'debug', 'FX Freeze')
+addNamedLogger('fx_gpio', 'debug', 'FX GPIO')
 
 const logger = winston.loggers.get('main')
 
@@ -130,6 +135,10 @@ const config = function() {
 		process.exit(1)
 	}
 	scenario = lo.merge(scenarios[0], scenario)
+	if (scenario.canvasSize < scenario.ledCount) {
+		logger.warn('Canvassize ' + scenario.canvasSize + ' smaller than ledCount ' + scenario.ledCount + ', increasing it')
+		scenario.canvasSize = scenario.ledCount
+	}
 	return scenario
 }()
 
@@ -140,20 +149,36 @@ const variables = dict()
 
 logDActivated = false
 
-ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency } )
+ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency, "strip_type": config.hardware.strip_type } )
+
+async function terminate(errlevel) {
+	await Promise.all(god.terminateListeners.map(async listener => { 
+		try { 
+			await listener() 
+		} catch (e) {
+			if (this.logger) { this.logger.error("Exception during terminate callback: %o", e) } else { console.log("Exception during terminate callback: ", e) }
+		}
+	}))
+    ws281x.reset()
+    process.nextTick(function () { process.exit(errlevel) })
+}
+
+var god = {
+	terminateListeners: [],
+	terminate: terminate,
+}
+
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
     await logger.error("Program terminated - Bye, Bye...")
-    ws281x.reset()
-    process.nextTick(function () { process.exit(0) })
+    terminate(0)
 })
 
 // handle the error safely
 process.on('uncaughtException', async function (err) {
     await logger.error(err.stack)
-    ws281x.reset()
-    process.nextTick(function () { process.exit(0) })
+    terminate(0)
 })
 
 app.use('/', require('express').static(__dirname + '/public'))
@@ -199,19 +224,19 @@ app.get('/scenario/:sId', async function(req, res) {
 	logger.info("Scenario %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "alarm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('alarm')
 		res.send('Alarm triggered')
 	} else if (sId == "alarm2") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
 		res.send('Alarm2 triggered')
 	} else if (sId == "calm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('rainbow')
         fxList[1].fx.len = 98
         fxList[1].fx.cyclelen = 600
@@ -220,24 +245,24 @@ app.get('/scenario/:sId', async function(req, res) {
 		res.send('Calming down...')
 	} else if (sId == "disco") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
 		fullDisco()
 		res.send('Let\'s rock!')
 	} else if (sId == "green_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
 		res.send('Green Fire triggered')
 	} else if (sId == "blue_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
 		res.send('Blue Fire triggered')
 	} else if (sId == "red_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
 		res.send('Red Fire triggered')
@@ -330,7 +355,7 @@ console.log("socket received: getUserlist", data)
 		dataOut.push({fx: fxIdx, cfg: cfg})
     }
 	logger.debug("Got a config update from client.id=%s, sending out to all other clients:", socket.id)
-	logger.debug(dataOut)
+	logger.debug("%o", dataOut)
 	socket.broadcast.emit('browserD-sendConfigUpdate', dataOut)
 	cluster.updateConfig()
   })
@@ -346,7 +371,7 @@ console.log("socket received: getUserlist", data)
 			fxList[1] = addEffect(fxNames[data])
 			fxList[2] = addEffect('slave', 'Slave1')
 		} else {
-			fxList[0] = addEffect('freeze')
+			fxList[0] = addEffect(config.defaultfx)
 			fxList[1] = addEffect(fxNames[data])
 		}
     }
@@ -468,7 +493,7 @@ function addEffect(fxName, fxVarName) {
 		// whether placement of the effect on the canvas should be done reversed
 		reverse: false,
 	}
-	effect = require('./fx/' + fxName)(layout, configManager)
+	effect = require('./fx/' + fxName)(layout, configManager, god)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
@@ -601,11 +626,6 @@ if (config.name == 'zcon') {
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
 } else {
     doCfgLoad()
-/*
-	fxList.length = 0
-	fxList[0] = addEffect('freeze')
-	fxList[1] = addEffect('bars')
-*/
 }
 
 startRendering()

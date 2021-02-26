@@ -67,7 +67,7 @@ ${prefix}updateButton(${this.frozen})
     
     renderColors: function(canvas) {
         if (this.frozen) {
-			// layout changed since frozen?
+			// layout changed since start of freeze?
 			if (this.layout.fxLength != this.lastColors.length) {
 				self.logger.warn("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
 				this.lastColors = util.mergeColors(this.layout.fxLength, this.lastColors)

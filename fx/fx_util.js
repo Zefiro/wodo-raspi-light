@@ -96,7 +96,7 @@ module.exports = {
      */
     rgb2Int: function(r, g, b) {
         if (b == 255) { b = 254 }
-        return ((r & 0xff) << 16) + ((b & 0xff) << 8) + (g & 0xff)
+        return ((r & 0xff) << 16) + ((g & 0xff) << 8) + (b & 0xff)
     },
 
     /** returns HTML for an input field reading an integer */
