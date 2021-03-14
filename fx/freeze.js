@@ -1,6 +1,10 @@
 const util = require('./fx_util')
 const winston = require('winston')
 
+/*
+ * Note: this doesn't work nicely as cluster-client, as the local lastColors[] will be overwritten with the servers colors
+ */
+
 module.exports = function(layout, name) { 
 var self = {
 

@@ -18,6 +18,7 @@ var self = {
 	server: {
 		clientSocket: null,
 		logger: null,
+		timeoutId: 0,
 	},
 	
 	initServer: function(ioServer, configManager) {
@@ -129,6 +130,12 @@ var self = {
 			}
 		}
 		self.server.clientSocket.emit('cluster-update', data)
+		// update from time to time, to restore sync when 'time jumped'. It does flicker, though :(
+		clearTimeout(self.server.timeoutId)
+		self.server.timeoutId = setTimeout(() => {
+			self.server.logger.info("Pushed current state to client (regular update to stay in sync)")
+			self.updateConfig()
+		}, 5 * 60 * 1000)
 	}
     
 }

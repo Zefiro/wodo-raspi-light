@@ -238,10 +238,13 @@ app.get('/scenario/:sId', async function(req, res) {
 		fxList.length = 0
         fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('rainbow')
-        fxList[1].fx.len = 98
-        fxList[1].fx.cyclelen = 600
-        fxList[1].fx.speed = 6000
-        fxList[1].fx._offset = 50
+		fxList[1].fx.loadConfigData({
+			"speed": 6000,
+			"cyclelen": 1000,
+			"anim": {
+				"deltaT": 9139429
+			}
+		})
 		res.send('Calming down...')
 	} else if (sId == "disco") {
 		fxList.length = 0
