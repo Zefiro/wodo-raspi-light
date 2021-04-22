@@ -1,6 +1,7 @@
 var util = require('./fx_util')
+const fetch = require('node-fetch')
 
-module.exports = function(layout, name) { return {
+module.exports = function(layout, name, god) { return {
 
     // FX configuration
     layout: layout,
@@ -128,6 +129,7 @@ if (this.actStep % this.macros[this.actMacro].speed == 0) {
 		current = this.macros[this.actMacro].steps[this.actStep]
 		black = { r: 0, g: 0, b: 0 }
 //		console.log(current)
+let f = black
 		for(i = 0; i < current.length; i++) {
 		    j = current.length - i -1 // switch direction, so that config string and actual 'Regalbrett' match
 		    switch(current[i]) {
@@ -139,7 +141,11 @@ if (this.actStep % this.macros[this.actMacro].speed == 0) {
 		        default: col = black; break
             }
 			util.setCanvasColors(canvas, this.layout, i*5, [ col, col, black, black, black ])
+			// TODO not just duplicate, but adjust to canvas length
+			util.setCanvasColors(canvas, this.layout, i*5+60, [ col, col, black, black, black ])
+			if (i > 3 && (col.r != 0 || col.g != 0 || col.b != 0)) f = col
 		}
+		// this.sendMqtt(f) // NOPE doesn't work :(
 // DEBUG bpm display
 var taktCol = util.rgb(0, (this.nextTaktOff > now) ? 10 : 0, 0)
 canvas[0] = taktCol
@@ -147,4 +153,14 @@ canvas[0] = taktCol
     	return canvas
     },
     
+	// doesn't work - MQTT is too slow, seems to burst-update once a second, and HTTP also has issues, and crashes the program if too many open requests accumulate
+	sendMqtt: async function(color) {
+		if (!god.mqtt) return
+		let htmlcolor = ("00" + color.r.toString(16)).slice(-2) + ("00" + color.g.toString(16)).slice(-2) + ("00" + color.b.toString(16)).slice(-2)
+		console.log(htmlcolor, color)
+//		god.mqtt.publish("cmnd/grag-main-fanlight/Color1", "#" + htmlcolor)
+console.log('http://grag-main-fanlight.fritz.box/cm?cmnd=Color1 ' + htmlcolor)
+//		let res = await fetch('http://grag-main-fanlight.fritz.box/cm?cmnd=Color1 ' + htmlcolor)
+//		console.log(res.status)
+	},
 }}

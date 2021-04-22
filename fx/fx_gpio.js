@@ -7,7 +7,7 @@ var self = {
 
     // FX configuration
 	gpio: undefined,
-	gpio_on: false,
+	gpio_on: true,
 	logger: winston.loggers.get('fx_gpio'),
     
     getName: function() {
@@ -17,6 +17,21 @@ var self = {
 	init: function() {
 		this.gpio = new Gpio(17, 'out')
 		god.terminateListeners.push(this.onTerminate.bind(this))
+		this.gpio.writeSync(this.gpio_on ? 1 : 0)
+		if (god.mqtt) {
+			god.mqtt.addTrigger('cmnd/' + god.config.mqtt.clientId + '/POWER', 'Power', async (trigger, topic, message, packet) => {
+				this.logger.info("Got mqtt cmnd: Power %s", message)
+				if (message == 'ON') {
+					this.setConfigData({ gpio_on: true })
+				} else if (message == 'OFF') {
+					this.setConfigData({ gpio_on: false })
+				} else if (message == '') {
+					god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' )
+				} else {
+					god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/RESULT', 'Unknown' )
+				}
+			})
+		}
 	},
     
 	onTerminate: async function() {
@@ -25,7 +40,13 @@ var self = {
 			this.gpio.writeSync(0)
 			this.gpio.unexport()
 		} catch (e) {
+			console.log(e)
+			if (e.startsWith('Error: EBADF: bad file descriptor')) {
+				// simplify error message
+				this.logger.error("Exception during freeing of GPIO pin: --- %s", e)
+			} else {
 			this.logger.error("Exception during freeing of GPIO pin: %o", e)
+			}
 		}
 	},
 
@@ -63,11 +84,13 @@ ${prefix}updateButton(${this.gpio_on})
 	setConfigData: function(data) {
 		this.gpio_on = data.gpio_on
 		this.gpio.writeSync(data.gpio_on ? 1 : 0)
+		if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
 	},
     
 	loadConfigData: function(data) {
 		this.gpio_on = data.gpio_on
 		this.gpio.writeSync(data.gpio_on ? 1 : 0)
+		if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
 	},
 	
 	saveConfigData: function() {
