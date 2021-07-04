@@ -73,6 +73,7 @@ const sites = [
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
 		ledCount: 106,
+		canvasSize: 106,
 		defaultfx: 'fx_gpio',
 		mqtt: {
 			"server": "mqtt://grag.fritz.box",
@@ -90,7 +91,7 @@ const sites = [
 
 // available effects for the user to select
 // Unfinished Effects: dmx, transpose, shippo, misan
-const fxNames = ['disco', 'rainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'bars']
+const fxNames = ['disco', 'rainbow', 'ainbow', 'singleColor', 'fire', 'shadowolf', 'alarm', 'bars']
 
 
 
@@ -563,6 +564,12 @@ async function doCfgLoad(socket, msg) {
 	try {
 		let data = await readFile(cfgFilename, {encoding: 'utf-8'})
         var config = JSON.parse(data)
+	} catch (error) {
+        logger.error("Failed to read config file " + cfgFilename + ": " + error)
+        socket && socket.emit("toast", "Failed to read config")
+		return
+    }
+	try {
         fxList.length = 0
         for(var i = 0; i < config.fxList.length; i++) {
             var fx = addEffect(config.fxList[i].name)
@@ -574,8 +581,8 @@ async function doCfgLoad(socket, msg) {
         sendFullConfig()
         socket && socket.emit("toast", "Config loaded")
 	} catch (error) {
-        logger.error("Failed to read config file " + cfgFilename + ": " + error)
-        socket && socket.emit("toast", "Failed to read config")
+        logger.error("Failed to parse config file " + cfgFilename + ": " + error)
+        socket && socket.emit("toast", "Failed to parse config")
     }
 }
 

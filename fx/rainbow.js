@@ -68,8 +68,9 @@ module.exports = function(layout, name) { return {
 	},
 	
 	animate: function() {
+		if (this._speed == 0) return
 		let deltaT = new Date() - this._startTime
-		this._offset = (deltaT / 100 * 256 / this._speed) % 256;
+		this._offset = (deltaT / 100 * 256 / this._speed) % 256
 	},	
 
     renderColors: function(canvas, variables) {

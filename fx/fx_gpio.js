@@ -9,12 +9,14 @@ var self = {
 	gpio: undefined,
 	gpio_on: true,
 	logger: winston.loggers.get('fx_gpio'),
+	initialized: false,
     
     getName: function() {
         return "Switches the strip off"
     },
 	
 	init: function() {
+		if (this.initialized) return
 		this.gpio = new Gpio(17, 'out')
 		god.terminateListeners.push(this.onTerminate.bind(this))
 		this.gpio.writeSync(this.gpio_on ? 1 : 0)
@@ -32,18 +34,18 @@ var self = {
 				}
 			})
 		}
+		this.initialized = true
 	},
     
 	onTerminate: async function() {
 		try {
-			this.logger.info("GPIO: Switching off LEDs and unexporting GPIO pin")
+			this.logger.info("GPIO: Switching off LEDs and unexporting GPIO pin %o", this.gpio._gpio)
 			this.gpio.writeSync(0)
 			this.gpio.unexport()
 		} catch (e) {
-			console.log(e)
-			if (e.startsWith('Error: EBADF: bad file descriptor')) {
+			if (e && (e.toString().startsWith('Error: EBADF: bad file descriptor') || e.toString().startsWith('Error: ENODEV: no such device'))) {
 				// simplify error message
-				this.logger.error("Exception during freeing of GPIO pin: --- %s", e)
+				this.logger.error("Exception during freeing of GPIO pin: --- %s", e.toString())
 			} else {
 			this.logger.error("Exception during freeing of GPIO pin: %o", e)
 			}

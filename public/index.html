@@ -118,10 +118,12 @@ var colorUpdateEnabled = false;
 var pendingColorUpdate = 0;
 
 function createTable() {
+	let mirrored = false
     var table = $('<table class="ledstrip"></table>');
     var row = $('<tr></tr>');
-    for(i=color.length-1; i>=0; i--){
-        var cell = $('<td style="background-color:'+color[i]+'"></td>');
+    for(i=0; i<color.length; i++){
+		let j = mirrored ? color.length-1 - i : i
+        var cell = $('<td style="background-color:'+color[j]+'"></td>');
         row.append(cell);
     }
     table.append(row);
