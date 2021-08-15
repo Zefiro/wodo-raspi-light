@@ -20,11 +20,13 @@ var Q = require('q')
  *----------------------
  * - connect either rfid or nfc reader
  *   - select which one in function init()
- *   - update filter in sendUserlistToBrowser
+ *   - update filter in sendUserlistToBrowser here, and in on.userlistToBrowser in zcon.html
  * - prepare data file (tbd)
  *   - update auto-fill in receiveSerial() for !user-branch
  *   - take previous userlist-(event|year).json and copy to userlist.json
- *   - for each card, hold it to the reader, enter 'day' and 'paid', click save
+ *   - set resetUsersOnLoad=true, start once, then set to false again. This resets "Da" for all already-known users.
+ *   - select default effect, e.g. "single color black"
+ *   - for each card, hold it to the reader, if necessary change 'day' and 'paid', press return or click save
  *   - backup: copy userlist.json to userlist-(event|year)-precon.json
  *   - optional backup: copy userlist.json to userlist-(event|year)-xxxsave.json
  *
@@ -35,7 +37,6 @@ var Q = require('q')
  * TODO for 2019
  * + repair rdm parser, with the new parser format
  * - perhaps move "repeated detection" into receiveSerial, not inside the parser
- * - prepare the userlist (and update the docu on that)
  * - centralize strings ('2018', perhaps more?) and rfid/nfc type
  */
 
@@ -65,6 +66,7 @@ module.exports = function(layout, configManager) {
 	_mode: 0,
 	userLogoutTimeout: 5 * 60 * 1000,
 	userSaveTimeout: 1 * 60 * 1000,
+	resetUsersOnLoad: false, // use only when initializing before a con
 
 	variables: dict({
 		users: {
@@ -146,7 +148,7 @@ module.exports = function(layout, configManager) {
 		    if (value.rfid === data) user = value
 		})
 		if (!user) {
-			user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2019' }
+			user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 0, day: 'DO', 'event': 'zcon2020' }
 			console.log("New user found (rfid='" + user.rfid + "')")
 			users.push(user)
    			this._configManager.toast("New user found (rfid='" + user.rfid + "')")
@@ -239,7 +241,7 @@ module.exports = function(layout, configManager) {
 	sendUserlistToBrowser: function(socket, data) {
 		var users = util.clone(this.variables.get('users'))		
 		users.users = users.users.filter(user => {
-			return user.event == "zcon2019" || user.da == 1
+			return user.event == "zcon2020" || user.da == 1
 		})
 		console.log("sendUserlistToBrowser: printing list of users (" + users.users.length + " of " + this.variables.get('users').users.length + ")")
 		socket.emit("userlistToBrowser", users)
@@ -256,7 +258,7 @@ module.exports = function(layout, configManager) {
 			var users = JSON.parse(data)
             users.lastUser = null
 			this.variables.set('users', users)
-			if (false) { // use once to reset 'da' of all users
+			if (this.resetUsersOnLoad) { // use once to reset 'da' of all users
 				var resetCounter = 0
 				console.log(users.users)
 				users.users.forEach(user => {
@@ -279,6 +281,7 @@ module.exports = function(layout, configManager) {
 	_saveUserlist: function() {
 		console.log("fx_rfid: Save triggered...")
 		var users = this.variables.get('users')
+		delete users.lastUser
 	    var p=Q.nfcall(fs.writeFile, this.usersFilename, JSON.stringify(users, null, 4), {encoding: 'utf-8'})
         p.fail(function () {
 			console.log("fx_rfid: Failed to write config file " + this.usersFilename)
