@@ -1,6 +1,10 @@
 const util = require('./fx_util')
 const winston = require('winston')
 
+/*
+ * Note: this doesn't work nicely as cluster-client, as the local lastColors[] will be overwritten with the servers colors
+ */
+
 module.exports = function(layout, name) { 
 var self = {
 
@@ -67,7 +71,7 @@ ${prefix}updateButton(${this.frozen})
     
     renderColors: function(canvas) {
         if (this.frozen) {
-			// layout changed since frozen?
+			// layout changed since start of freeze?
 			if (this.layout.fxLength != this.lastColors.length) {
 				self.logger.warn("FX: Freeze: resizing necessary! " + this.lastColors.length + " -> " + this.layout.fxLength)
 				this.lastColors = util.mergeColors(this.layout.fxLength, this.lastColors)

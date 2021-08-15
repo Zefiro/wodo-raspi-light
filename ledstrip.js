@@ -11,7 +11,8 @@ const dns = require('dns')
 const winston = require('winston')
 const lo = require('lodash')
 
-// this is our own fork, remember to set the symlink in node_modules
+// this is our own fork, remember to set the symlink in node_modules (needs to be done after every 'npm install')
+// pushd node_modules && ln -s ../../node-rpi-ws281x-native/ . && popd
 const ws281x = require('node-rpi-ws281x-native')
 
 const fxutil = require('./fx/fx_util')
@@ -29,8 +30,12 @@ var colors = new Array()
 
 */
 
+var god = {
+	terminateListeners: [],
+	terminate: terminate,
+}
 
-const scenarios = [
+const sites = [
 	{
 		name: '[default]', // referenced by index 0, not by name
 		displayName: '(default name)',
@@ -39,7 +44,9 @@ const scenarios = [
 		hardware: {
 			invert: 1,
 			frequency: 400000,
+			strip_type: 0x00001008, // BRG
 		},
+		defaultfx: 'freeze',
 	}, {
 		name: 'regalbrett',
 		displayName: 'World Domination - Regalbrett',
@@ -65,6 +72,12 @@ const scenarios = [
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
+		ledCount: 106,
+		defaultfx: 'fx_gpio',
+		mqtt: {
+			"server": "mqtt://grag.fritz.box",
+			"clientId": "grag-main-strip",
+		},
 	}, {
 		name: 'shadow-stein',
 		displayName: 'Wolfshöhle - Stein',
@@ -112,48 +125,72 @@ addNamedLogger('main', 'debug')
 addNamedLogger('cluster-server', 'debug', 'ClusterD')
 addNamedLogger('cluster-client', 'debug', 'ClusterC')
 addNamedLogger('fx_freeze', 'debug', 'FX Freeze')
+addNamedLogger('fx_gpio', 'debug', 'FX GPIO')
+addNamedLogger('mqtt', 'debug')
 
 const logger = winston.loggers.get('main')
 
 
 const config = function() {
-	for(let i = 0; i < scenarios.length; i++) {
-		if (scenarios[i].name == process.argv[2]) {
-			var scenario = scenarios[i]
+	for(let i = 0; i < sites.length; i++) {
+		if (sites[i].name == process.argv[2]) {
+			var site = sites[i]
 			break
 		}
 	}
-	if (!scenario) {
-		logger.warn("Missing or unknown scenario '" + process.argv[2] + "', please choose one of:")
-		scenarios.forEach(scenario => logger.warn(scenario.name))
-		// TODO wait for logger to finish
-		process.exit(1)
+	if (!site) {
+		logger.warn("Missing or unknown site '" + process.argv[2] + "', please choose one of:")
+		sites.forEach(site => logger.warn(site.name))
+		terminate(1)
 	}
-	scenario = lo.merge(scenarios[0], scenario)
-	return scenario
+	site = lo.merge(sites[0], site)
+	if (site.canvasSize < site.ledCount) {
+		logger.warn('Canvassize ' + site.canvasSize + ' smaller than ledCount ' + site.ledCount + ', increasing it')
+		site.canvasSize = site.ledCount
+	}
+	return site
 }()
+god.config = config
 
-
+if (config.mqtt) {
+	god.mqtt = require('./mqtt')(config.mqtt, god)
+	god.mqtt.addTrigger('cmnd/' + config.mqtt.clientId + '/SCENARIO', 'Scenario', async (trigger, topic, message, packet) => {
+		let res = setScenario(message)
+		god.mqtt.publish('stat/' + config.mqtt.clientId + '/RESULT', '{"SCENARIO":"' + res + '"}')
+	})
+}
 
 // global 'variables' dictionary, each module will have their own (published) variables placed into it
 const variables = dict()
 
 logDActivated = false
 
-ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency } )
+ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency, "strip_type": config.hardware.strip_type } )
+
+// TODO wait for logger to finish
+async function terminate(errlevel) {
+	await Promise.all(god.terminateListeners.map(async listener => { 
+		try { 
+			await listener() 
+		} catch (e) {
+			if (this.logger) { this.logger.error("Exception during terminate callback: %o", e) } else { console.log("Exception during terminate callback: ", e) }
+		}
+	}))
+    ws281x.reset()
+    process.nextTick(function () { process.exit(errlevel) })
+}
+
 
 // ---- trap the SIGINT and reset before exit
 process.on('SIGINT', async function () {
     await logger.error("Program terminated - Bye, Bye...")
-    ws281x.reset()
-    process.nextTick(function () { process.exit(0) })
+    terminate(0)
 })
 
 // handle the error safely
 process.on('uncaughtException', async function (err) {
     await logger.error(err.stack)
-    ws281x.reset()
-    process.nextTick(function () { process.exit(0) })
+    terminate(0)
 })
 
 app.use('/', require('express').static(__dirname + '/public'))
@@ -197,59 +234,72 @@ app.get('/scenario/:sId', async function(req, res) {
 	var sId = req.params.sId
 	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Scenario %s requested by %s (%s)", sId, ip, rdns)
+	let [status, result] = await setScenario(sId)
+	if (status) { res.status(status) }
+	res.send(result)
+})
+
+async function setScenario(sId) {
+	let status, result
 	if (sId == "alarm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('alarm')
-		res.send('Alarm triggered')
+		result = 'Alarm triggered'
 	} else if (sId == "alarm2") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
-		res.send('Alarm2 triggered')
+		result = 'Alarm2 triggered'
 	} else if (sId == "calm") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('rainbow')
-        fxList[1].fx.len = 98
-        fxList[1].fx.cyclelen = 600
-        fxList[1].fx.speed = 6000
-        fxList[1].fx._offset = 50
+		fxList[1].fx.loadConfigData({
+			"speed": 6000,
+			"cyclelen": 1000,
+			"anim": {
+				"deltaT": 9139429
+			}
+		})
 		res.send('Calming down...')
 	} else if (sId == "disco") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
 		fullDisco()
-		res.send('Let\'s rock!')
+		result = 'Let\'s rock!'
 	} else if (sId == "green_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
-		res.send('Green Fire triggered')
+		result = 'Green Fire triggered'
 	} else if (sId == "blue_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
-		res.send('Blue Fire triggered')
+		result = 'Blue Fire triggered'
 	} else if (sId == "red_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect('freeze')
+        fxList[0] = addEffect(config.defaultfx)
         fxList[1] = addEffect('fire')
         fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
-		res.send('Red Fire triggered')
+		result = 'Red Fire triggered'
 	} else if (sId == "load") {
 		doCfgLoad()
-		res.send('Stored Scenario loaded')
+		result = 'Stored Scenario loaded'
 	} else {
      	logger.error("Scenario not found: " + sId)
-		res.status(404).send('Scenario not found: ' + sId)
+		status = 404
+		result = 'Scenario not found: ' + sId
 	}
 	sendFullConfig()
-});
+	if (god.mqtt) { mqtt.publish('stat/' + config.mqtt.clientId + '/SCENARIO', sId) }
+	return [status, result]
+}
 
 app.get('/slave/:slaveId/:type', async function(req, res) {
 	var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
@@ -330,7 +380,7 @@ console.log("socket received: getUserlist", data)
 		dataOut.push({fx: fxIdx, cfg: cfg})
     }
 	logger.debug("Got a config update from client.id=%s, sending out to all other clients:", socket.id)
-	logger.debug(dataOut)
+	logger.debug("%o", dataOut)
 	socket.broadcast.emit('browserD-sendConfigUpdate', dataOut)
 	cluster.updateConfig()
   })
@@ -346,7 +396,7 @@ console.log("socket received: getUserlist", data)
 			fxList[1] = addEffect(fxNames[data])
 			fxList[2] = addEffect('slave', 'Slave1')
 		} else {
-			fxList[0] = addEffect('freeze')
+			fxList[0] = addEffect(config.defaultfx)
 			fxList[1] = addEffect(fxNames[data])
 		}
     }
@@ -468,7 +518,7 @@ function addEffect(fxName, fxVarName) {
 		// whether placement of the effect on the canvas should be done reversed
 		reverse: false,
 	}
-	effect = require('./fx/' + fxName)(layout, configManager)
+	effect = require('./fx/' + fxName)(layout, configManager, god)
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
@@ -552,18 +602,18 @@ var fps_lastDate = new Date()
 var fps_smoothed = 1000 / TARGET_FPS
 
 function startRendering() {
-    var timerId = setInterval(function () {
+    var timerId = setInterval(async function () {
         fps_currentDate = new Date()
         timediff = fps_currentDate - fps_lastDate
         fps_lastDate = fps_currentDate
         fps_smoothed = (fps_smoothed * 31 + timediff) / 32
         
         logD("Timer: render all colors")
-        colors = renderColors()
+        colors = await renderColors()
         // set the colors
         if (colors === undefined || colors.length != config.canvasSize) {
             logger.error("colors is undefined or of wrong length! Aborting!")
-            process.exit(1)
+            terminate(1)
         }
         for(let i = 0; i < config.ledCount; i++) { 
             pixelData[i] = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
@@ -599,13 +649,15 @@ if (config.name == 'zcon') {
     fxList[2] = addEffect('slave', 'Slave1')
     fxList[3] = addEffect('slave', 'Slave2')
 	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
+} else if (process.argv[3]) {
+	scenario = process.argv[3]
+    process.nextTick(async function () {
+		logger.info("Scenario given on commandline: " + scenario)
+		let result = await setScenario(scenario)
+		logger.info("Scenario %s result: %s", scenario, result)
+	})
 } else {
     doCfgLoad()
-/*
-	fxList.length = 0
-	fxList[0] = addEffect('freeze')
-	fxList[1] = addEffect('bars')
-*/
 }
 
 startRendering()

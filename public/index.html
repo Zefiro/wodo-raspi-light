@@ -97,13 +97,11 @@ window.addEventListener('error', function (evt) {
   
   var fxConfigUpdaters = []
   socket.on('browserD-sendConfigUpdate', function(data){
-    console.log("Server send a config update:")
-	console.log(data)
+    console.log("Server send a config update:", data)
     for(var idx = 0; idx < data.length; idx++) {
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
 		var updater = fxConfigUpdaters[fxIdx]
-		console.log(updater)
 		if (updater !== undefined) {
 		    updater(cfg)
 		}
