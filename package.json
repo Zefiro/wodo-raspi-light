@@ -24,7 +24,7 @@
     "http": "*",
     "i2c-bus": "*",
     "lodash": "*",
-    "node-fetch": "^2.6.1",
+    "node-fetch": "^3.1.1",
     "onoff": "*",
     "pn532": "*",
     "q": "*",
