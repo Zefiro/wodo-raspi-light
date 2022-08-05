@@ -28,6 +28,7 @@ const { v4: uuidv4 } = require('uuid')
 			this.logger.error("Can't connect" + error)
 			// TODO Steve says this only happens on auth failures and they are non-recoverable - other errors don't trigger this callback
 		})
+
 		this.client.on("connect", async () => {	
 			// TODO apparently 'connect' is called each second?!?
 			this.logger.info("Connected " + this.client.connected)
@@ -43,22 +44,34 @@ const { v4: uuidv4 } = require('uuid')
 	},
 	
 	_onMessage: function(topic, message, packet) {
-		let trigger = this.triggers[topic]
-		if (!trigger) {
-			// not found? try one level more generic
-			let topic2 = topic.replace(/\/[^/]+$/, '/#')
-			trigger = this.triggers[topic2]
-		}
-		if (!trigger) {
+        let topic2 = topic
+        let loop = true
+        let found = false
+
+        while(loop) {
+            let trigger = this.triggers[topic2]
+            if (trigger) {
+                found = true
+                let keys = Object.keys(trigger)
+                for(let i=0; i < keys.length; i++) {
+                    let t = trigger[keys[i]]
+                    this.logger.info(t.id + ": " + message.toString())
+                    t.callback(t, topic, message, packet)
+                }
+            }
+
+            // go one level more generic
+            if (topic2.indexOf('/') > 0) {
+                topic2 = topic2.replace(/(^|\/)[^/#]+(\/#)?$/, '/#')
+            } else {
+                loop = false
+            }
+        }
+
+		if (!found) {
 			// unrecognized mqtt message
 			this.logger.debug("unrecognized: " + topic + " -> " + message.toString().substr(0, 200))
 			return
-		}
-		let keys = Object.keys(trigger)
-		for(let i=0; i < keys.length; i++) {
-			let t = trigger[keys[i]]
-			this.logger.info(t.id + ": " + message.toString())
-			t.callback(t, topic, message, packet)
 		}
 	},
 	

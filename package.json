@@ -14,7 +14,7 @@
     "postinstall": "cd node_modules && ln -s ../../node-rpi-ws281x-native ."
   },
   "dependencies": {
-    "async-mqtt": "^2.6.1",
+    "async-mqtt": "*",
     "axios": "*",
     "clone": "*",
     "compression": "*",
@@ -24,7 +24,7 @@
     "http": "*",
     "i2c-bus": "*",
     "lodash": "*",
-    "node-fetch": "^2.6.1",
+    "node-fetch": "*",
     "onoff": "*",
     "pn532": "*",
     "q": "*",
@@ -32,7 +32,7 @@
     "serialport": "*",
     "socket.io": "*",
     "socket.io-client": "*",
-    "uuid": "^8.3.2",
+    "uuid": "*",
     "winston": "*"
   }
 }

@@ -77,7 +77,7 @@ module.exports = function(layout, name) { self = {
 		while (pos >= this.colorPoints[colorPointIdx].len) {
 			pos -= this.colorPoints[colorPointIdx].len
 			colorPointIdx++
-			if (colorPointIdx >= this.colorPoints.length) {
+			if (colorPointIdx >= this.colorPoints.length) { // if this happens, then the modulo colorPointFullLength failed
 				console.log("Overflow:", pos, colorPointIdx, this.colorPoints.length)
 				return { r:   0, g:   0, b: 0 }
 			}

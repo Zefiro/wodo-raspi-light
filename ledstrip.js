@@ -156,7 +156,7 @@ god.config = config
 if (config.mqtt) {
 	god.mqtt = require('./mqtt')(config.mqtt, god)
 	god.mqtt.addTrigger('cmnd/' + config.mqtt.clientId + '/SCENARIO', 'Scenario', async (trigger, topic, message, packet) => {
-		let res = setScenario(message)
+		let res = await setScenario(message)
 		god.mqtt.publish('stat/' + config.mqtt.clientId + '/RESULT', '{"SCENARIO":"' + res + '"}')
 	})
 }
@@ -290,15 +290,21 @@ async function setScenario(sId) {
         fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
 		result = 'Red Fire triggered'
 	} else if (sId == "load") {
-		doCfgLoad()
+		await doCfgLoad()
 		result = 'Stored Scenario loaded'
-	} else {
-     	logger.error("Scenario not found: " + sId)
-		status = 404
-		result = 'Scenario not found: ' + sId
+    } else if (sId == "reset") { // Loads default scenario, but for Burg Drachenstein: switches LEDs off
+        await doCfgLoad()
+        // both lines should work and do the same
+        if (config.name == 'mendra') fxList[0].fx.setConfigData({ gpio_on: false })
+        if (config.mqtt) god.mqtt.publish('cmnd/' + god.config.mqtt.clientId + '/POWER', 'OFF')
+		result = 'Stored Scenario loaded'
+    } else {
+        logger.error("Scenario not found: " + sId)
+        status = 404
+        result = 'Scenario not found: ' + sId
 	}
 	sendFullConfig()
-	if (god.mqtt) { mqtt.publish('stat/' + config.mqtt.clientId + '/SCENARIO', sId) }
+	if (god.mqtt) { god.mqtt.publish('stat/' + config.mqtt.clientId + '/SCENARIO', sId) }
 	return [status, result]
 }
 
@@ -422,7 +428,7 @@ console.log("socket received: getUserlist", data)
   })
 
   socket.on('browser-cfgDoLoad', async function(msg){
-    doCfgLoad(socket, msg)
+    await doCfgLoad(socket, msg)
   })
 
 })
@@ -664,7 +670,9 @@ if (config.name == 'zcon') {
 		logger.info("Scenario %s result: %s", scenario, result)
 	})
 } else {
-    doCfgLoad()
+    (async () => {
+        await setScenario('reset')
+    })()
 }
 
 startRendering()
