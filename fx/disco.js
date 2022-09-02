@@ -1,5 +1,4 @@
 var util = require('./fx_util')
-const fetch = require('node-fetch')
 
 module.exports = function(layout, name, god) { return {
 
@@ -145,7 +144,6 @@ let f = black
 			util.setCanvasColors(canvas, this.layout, i*5+60, [ col, col, black, black, black ])
 			if (i > 3 && (col.r != 0 || col.g != 0 || col.b != 0)) f = col
 		}
-		// this.sendMqtt(f) // NOPE doesn't work :(
 // DEBUG bpm display
 var taktCol = util.rgb(0, (this.nextTaktOff > now) ? 10 : 0, 0)
 canvas[0] = taktCol
@@ -153,14 +151,4 @@ canvas[0] = taktCol
     	return canvas
     },
     
-	// doesn't work - MQTT is too slow, seems to burst-update once a second, and HTTP also has issues, and crashes the program if too many open requests accumulate
-	sendMqtt: async function(color) {
-		if (!god.mqtt) return
-		let htmlcolor = ("00" + color.r.toString(16)).slice(-2) + ("00" + color.g.toString(16)).slice(-2) + ("00" + color.b.toString(16)).slice(-2)
-		console.log(htmlcolor, color)
-//		god.mqtt.publish("cmnd/grag-main-fanlight/Color1", "#" + htmlcolor)
-console.log('http://grag-main-fanlight.fritz.box/cm?cmnd=Color1 ' + htmlcolor)
-//		let res = await fetch('http://grag-main-fanlight.fritz.box/cm?cmnd=Color1 ' + htmlcolor)
-//		console.log(res.status)
-	},
 }}
