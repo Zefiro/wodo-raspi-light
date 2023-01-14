@@ -42,9 +42,12 @@ const sites = [
 		ledCount: 50,
 		canvasSize: 50,
 		hardware: {
+			dma: 10,
+			gpio: 18,
 			invert: 1,
-			frequency: 400000,
-			strip_type: 0x00001008, // BRG
+			freq: 400000,
+			stripType: 0x00001008, // BRG
+//			strip_type: 0x00001008, // BRG
 		},
 		defaultfx: 'freeze',
 	}, {
@@ -166,7 +169,7 @@ const variables = dict()
 
 logDActivated = false
 
-ws281x.init(config.ledCount, { "invert": config.hardware.invert, "frequency": config.hardware.frequency, "strip_type": config.hardware.strip_type } )
+const ledstripChannel = ws281x(config.ledCount, config.hardware )
 
 // TODO wait for logger to finish
 async function terminate(errlevel) {
@@ -178,6 +181,7 @@ async function terminate(errlevel) {
 		}
 	}))
     ws281x.reset()
+    ws281x.finalize()
     process.nextTick(function () { process.exit(errlevel) })
 }
 
@@ -629,7 +633,9 @@ function startRendering() {
             terminate(1)
         }
         for(let i = 0; i < config.ledCount; i++) { 
-            pixelData[i] = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+            let c = fxutil.rgb2Int(colors[i].r, colors[i].g, colors[i].b)
+            pixelData[i] = c
+            ledstripChannel.array[i] = c
         }
         ws281x.render(pixelData)
         
