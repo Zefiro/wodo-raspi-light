@@ -58,12 +58,16 @@ const sites = [
 		},
 		ledCount: 96,
 		canvasSize: 136,
+		mqtt: {
+			"server": "mqtt://cave.zefiro.de",
+			"clientId": "regalbrett",
+		},
 	}, {
 		name: 'regalbrett2',
 		displayName: 'World Domination - Regalbrett2',
 		cluster: {
 			type: 'client',
-			url: 'http://regalbrett.dyn.cave.zefiro.de',
+			url: 'http://regalbrett.dhcp.cave.zefiro.de',
 			offset: 96,
 			reverse: true,
 		},
