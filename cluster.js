@@ -40,7 +40,8 @@ var self = {
 				self.server.clientSocket = s
 				self.updateConfig()
 				self.updateBrowser()
-				let rdns = await util.promisify(dns.reverse)(s.client.conn.remoteAddress)
+                let ip = s.client.conn.remoteAddress
+                let rdns = await util.promisify(dns.reverse)(ip).catch(err => { self.server.logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 				self.server.logger.info("client connected from " + s.client.conn.remoteAddress + " (" + rdns + ")")
 			})
 		})
