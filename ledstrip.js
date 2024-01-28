@@ -83,7 +83,7 @@ const sites = [
 		canvasSize: 106,
 		defaultfx: 'fx_gpio',
 		mqtt: {
-			"server": "mqtt://grag.fritz.box",
+			"server": "mqtt://10.20.30.40",
 			"clientId": "grag-main-strip",
 		},
 	}, {
