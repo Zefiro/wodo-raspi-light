@@ -79,7 +79,7 @@ const sites = [
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
-		ledCount: 106,
+		ledCount: 47+59+35,
 		canvasSize: 106,
 		defaultfx: 'fx_gpio',
 		mqtt: {
