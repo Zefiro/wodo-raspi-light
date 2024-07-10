@@ -90,11 +90,11 @@ const sites = [
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
-		ledCount: 106,
-		canvasSize: 106,
+		ledCount: 47+59+35,
+		canvasSize: 141,
 		defaultfx: 'fx_gpio',
 		mqtt: {
-			"server": "mqtt://grag.fritz.box",
+			"server": "mqtt://10.20.30.40",
 			"clientId": "grag-main-strip",
 		},
 	}, {
@@ -530,7 +530,7 @@ var configManager = {
 
 async function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
-    logger.debug("adding effect " + fxName + " as " + fxVarName + " (" + config.canvasSize + ")")
+    logger.debug("adding effect " + fxName + " as " + fxVarName + " (canvas: " + config.canvasSize + "px)")
 	let layout = {
 		// size of the full canvas (i.e. the array of calculated colors, which is used for other effects and finally to drive the LEDs)
 		canvasSize: config.canvasSize,
