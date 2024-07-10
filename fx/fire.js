@@ -196,7 +196,7 @@ module.exports = function(layout, name) {
     			this.pixels[1][i].counter = this.pixels[0][i].counter
     		}
     		this.pixels[0] = this.pixels[1]
-console.log("Fire: Recreate Pixels")
+//console.log("Fire: Recreate Pixels")
     		this.pixels[1] = createAllPixels(self.layout.fxLength)
     	}
 		
@@ -212,7 +212,7 @@ console.log("Fire: Recreate Pixels")
 				startTime: new Date(),
 				maxAgeMs: 2800,
 			}
-			console.log("new spark at " + spark.x)
+//			console.log("new spark at " + spark.x)
 			this.sparks.push(spark)
 		}
 		let sparkMap = new Array(self.layout.fxLength).fill(0)
