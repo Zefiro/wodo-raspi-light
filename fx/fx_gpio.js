@@ -148,7 +148,7 @@ ${prefix}updateButton(${this.gpio_on})
 	
 	setConfigData: function(data) {
 //console.log('setConfigData', data)
-        if (this.gpio_on != data.gpio_on) {
+        if (!data.noFade && this.gpio_on != data.gpio_on) {
             this.gpio_on = true
             this.isFading = true
             this.fadingStart = new Date()
@@ -156,12 +156,11 @@ ${prefix}updateButton(${this.gpio_on})
             this.lastScreensaver = new Date()
             this.gpio.writeSync(1)
             if (god.mqtt && this.gpio_on) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', 'ON' ) }
+        } else {
+            this.gpio_on = data.gpio_on
+            this.gpio.writeSync(this.gpio_on ? 1 : 0)
+            if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
         }
-/*
-		this.gpio_on = data.gpio_on
-		this.gpio.writeSync(this.gpio_on ? 1 : 0)
-		if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
-*/
 	},
 
 	loadConfigData: function(data) {
