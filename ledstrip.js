@@ -274,7 +274,7 @@ async function setScenario(sId) {
 				"deltaT": 9139429
 			}
 		})
-		res.send('Calming down...')
+		result = 'Calming down...'
 	} else if (sId == "disco") {
 		fxList.length = 0
         fxList[0] = addEffect(config.defaultfx)
