@@ -1,5 +1,5 @@
 <html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>ZCon 2023</title>
+<title>ZCon 2024</title>
 <script src="jquery-2.1.3.js"></script>
 <script src="jquery-ui.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -88,8 +88,8 @@ window.addEventListener('error', function (evt) {
   
 socket.on('userlistToBrowser', function(data){
     console.log("received userlist. ", data.users.length, "users, last user:", data.lastUser ? data.lastUser.nick : "<none>")
-	var a = data.users.filter(user => user.event == "zcon2023")
-	var b = data.users.filter(user => user.event != "zcon2023")
+	var a = data.users.filter(user => user.event == "zcon2024")
+	var b = data.users.filter(user => user.event != "zcon2024")
 	data.users = a
 	createTable(data)
 	data.users = b
@@ -184,13 +184,13 @@ function checkPageRefresh() {
             document.title = "Connection lost, retrying...";
 			$('body').html("<h1>Maintenance</h1>Please stand by.")
         document.title = "The End...";
-        $('body').html("<h1>ZCON 2023 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
+        $('body').html("<h1>ZCON 2024 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
         }
     }, error:function(jqXHR, textStatus, errorThrown) {
         document.title = "Connection lost, retrying...";
         $('body').html("<h1>Maintenance</h1>Please stand by.")
         document.title = "The End...";
-        $('body').html("<h1>ZCON 2023 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
+        $('body').html("<h1>ZCON 2024 - THE END</h1><br>Vielen Dank an alle Teilnehmer.<br><br>Bis n&auml;chstes Jahr...")
         console.log("$Self not retrieveable - trying again later");
         // load error - try again later
         setTimeout(checkPageRefresh, 2000);
@@ -214,7 +214,7 @@ $(document).ready(function() {
 </head>
 <body>
 
-<h1 id="title">ZCon 2023 - Infoscreen</h1>
+<h1 id="title">ZCon 2024 - Infoscreen</h1>
 <a href="/zcon.html">Reload</a><br>
 
 
@@ -223,7 +223,7 @@ $(document).ready(function() {
 <div id="simDiv"><div id="userlist" style="display: block;">Connecting to server...</div></div>
 
 
-<div id="list2">
+<div id="list2" style="visibility:hidden">
 <hr>
 <h2>Wiederkehrende Teilnehmer</h2>
 <div id="userlist2" style="display: block;">Connecting to server...</div>

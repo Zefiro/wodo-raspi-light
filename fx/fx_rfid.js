@@ -20,10 +20,10 @@ const fs = require('fs').promises
  * - connect either rfid or nfc reader
  *   - select which one in function init()
  *   - update filter in sendUserlistToBrowser here, and in on.userlistToBrowser in zcon.html
- * - prepare data file (tbd)
+ * - prepare data file (tbd), see "// YEARLY_UPDATE"
  *   - update auto-fill in receiveSerial() for !user-branch
  *   - take previous userlist-(event|year).json and copy to userlist.json
- *   - set resetUsersOnLoad=true, start once, then set to false again. This resets "Da" for all already-known users.
+ *   - set resetUsersOnLoad=true, start ONCE, then set to false again. This resets "Da" for all already-known users.
  *   - select default effect, e.g. "single color black"
  *   - for each card, hold it to the reader, if necessary change 'day' etc, press return or click save
  *   - backup: copy userlist.json to userlist-(event|year)-precon.json
@@ -66,7 +66,7 @@ module.exports = async function(layout, configManager, god) {
 	_mode: 0,
 	userLogoutTimeout: 5 * 60 * 1000,
 	userSaveTimeout: 1 * 60 * 1000,
-	resetUsersOnLoad: false, // use only when initializing before a con
+	resetUsersOnLoad: false, // use only when initializing before a con -- // YEARLY_UPDATE
     allowNewUsers: false, // should unknown cards create a new user? otherwise they'll be ignored
 
 	variables: dict({
@@ -155,7 +155,8 @@ module.exports = async function(layout, configManager, god) {
             return
         } else if (!user) {
             if (this.allowNewUsers) {
-                user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2023' }
+                // YEARLY_UPDATE set the new year here (and also in zcon.html)
+                user = {rfid: data, nick:"User #"+(users.length+1), counter:-1, da: 0, paid: 1, day: 'DO', 'event': 'zcon2024' }
                 this.logger.info("New user found (rfid='" + user.rfid + "')")
                 users.push(user)
                 this._configManager.toast("New user found (rfid='" + user.rfid + "')")
@@ -254,7 +255,7 @@ module.exports = async function(layout, configManager, god) {
 	sendUserlistToBrowser: function(socket, data) {
 		var users = util.clone(this.variables.get('users'))		
 		users.users = users.users.filter(user => {
-			return user.event == "zcon2023" || user.da == 1
+			return user.event == "zcon2024" || user.da == 1
 		})
 		this.logger.info("sendUserlistToBrowser: printing list of users (" + users.users.length + " of " + this.variables.get('users').users.length + ")")
 		socket.emit("userlistToBrowser", users)
