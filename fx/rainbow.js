@@ -1,6 +1,6 @@
 var util = require('./fx_util')
 
-module.exports = function(layout, name) { return {
+module.exports = function(layout, configManager, god) { return {
 
     // FX configuration
 	layout: layout,

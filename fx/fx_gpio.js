@@ -46,10 +46,16 @@ module.exports = function(layout, configManager, god) {
 var self = {
 
     // FX configuration
+	layout: layout,
 	gpio: undefined,
-	gpio_on: true,
+	gpio_on: false,
+    gpio_screensaver: false, // if true, gpio is turned off even though this.gpi_on might be true
 	logger: winston.loggers.get('fx_gpio'),
 	initialized: false,
+    fadingDirection: 0, // -1 = fading down, 0 = no fading, 1 = fading up
+    fadingStart: new Date(), // timestamp when fading started
+    fadingSpeed: 1000, // ms for full fade
+    lastScreensaver: 0, // timestamp when the leds were last switched off (to 'reset' them, because my strip is dying)    
     
     getName: function() {
         return "Controls the power to the LED Strip"
@@ -58,7 +64,7 @@ var self = {
 	init: function() {
 		if (this.initialized) return
         try {
-		this.gpio = new Gpio(512+17, 'out')
+            this.gpio = new Gpio(512+17, 'out') // see comment in the top
         } catch(error) {
             console.log("Error with GPIO init: ", error)
             throw error
@@ -141,14 +147,26 @@ ${prefix}updateButton(${this.gpio_on})
 	},
 	
 	setConfigData: function(data) {
-		this.gpio_on = data.gpio_on
-		this.gpio.writeSync(data.gpio_on ? 1 : 0)
-		if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
+//console.log('setConfigData', data)
+        if (!data.noFade && this.gpio_on != data.gpio_on) {
+            this.gpio_on = true
+            this.isFading = true
+            this.fadingStart = new Date()
+            this.fadingDirection = data.gpio_on ? 1 : -1
+            this.lastScreensaver = new Date()
+            this.gpio.writeSync(1)
+            if (god.mqtt && this.gpio_on) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', 'ON' ) }
+        } else {
+            this.gpio_on = data.gpio_on
+            this.gpio.writeSync(this.gpio_on ? 1 : 0)
+            if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
+        }
 	},
-    
+
 	loadConfigData: function(data) {
+console.log('loadConfigData', data)
 		this.gpio_on = data.gpio_on
-		this.gpio.writeSync(data.gpio_on ? 1 : 0)
+		this.gpio.writeSync(this.gpio_on ? 1 : 0)
 		if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', this.gpio_on ? 'ON' : 'OFF' ) }
 	},
 	
@@ -158,6 +176,56 @@ ${prefix}updateButton(${this.gpio_on})
 	},
     
     renderColors: function(canvas) {
+        let now = new Date()
+        
+        if (now - this.lastScreensaver > 70*1000  && now.getMinutes() == 0) {
+            if (this.gpio_on) {
+                this.lastScreensaver = now
+                this.fadingStart = now
+                this.isFading = true
+                this.fadingStart = now
+                this.fadingDirection = -1
+                this.gpio_screensaver = true
+                this.logger.info("Screensaver started")
+            }
+        } else if (this.gpio_screensaver && now - this.lastScreensaver > 4*1000) {
+                this.isFading = true
+                this.fadingStart = now
+                this.fadingDirection = 1
+                this.gpio_screensaver = false
+                this.gpio.writeSync(1)
+                this.logger.info("Screensaver ended")
+        }
+
+        if (this.isFading) {
+            let deltaT = now - this.fadingStart
+            let fadingPercent = deltaT * 100 / this.fadingSpeed
+            if (this.fadingDirection > 0) {
+//console.log('fading', fadingPercent)
+                if (fadingPercent >= 100) {
+                    this.isFading = false
+//console.log('fading finished - on')
+                }
+            } else {
+                fadingPercent = 100 - fadingPercent
+                if (fadingPercent <= 0) {
+//console.log('fading finished - off')
+                    this.isFading = false
+                    this.gpio.writeSync(0)
+                    if (!this.gpio_screensaver) {
+                        // defaults to 'off' after fade-out, but is kept 'on' if we only switch off due to the screensaver
+                        this.gpio_on = false
+                        if (god.mqtt) { god.mqtt.publish('stat/' + god.config.mqtt.clientId + '/POWER', 'OFF' ) }
+                    }
+                }
+            }
+            for (let i = 0; i < this.layout.fxLength; i++) {
+                let targetIdx = this.layout.canvasStart + (this.layout.reverse ? this.layout.fxLength - i - 1 : i)
+                canvas[targetIdx] = util.mapColor({r: 0, g: 0, b: 0}, canvas[targetIdx], fadingPercent)
+            }
+		}
+        
+        if (!this.gpio_on) return util.mergeColors(this.layout.fxLength) // if power is off also send pure black
 		return canvas
     },
     

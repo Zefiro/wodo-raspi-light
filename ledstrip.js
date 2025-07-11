@@ -93,6 +93,7 @@ const sites = [
 		ledCount: 47+59+35,
 		canvasSize: 141,
 		defaultfx: 'fx_gpio',
+        ScenarioResetSwitchesOffGpio: true,
 		mqtt: {
 			"server": "mqtt://10.20.30.40",
 			"clientId": "grag-main-strip",
@@ -285,7 +286,7 @@ async function setScenario(sId) {
 				"deltaT": 9139429
 			}
 		})
-		res.send('Calming down...')
+		result = 'Calming down...'
 	} else if (sId == "disco") {
 		fxList.length = 0
         fxList[0] = await addEffect(config.defaultfx)
@@ -317,7 +318,8 @@ async function setScenario(sId) {
         // both lines should work and do the same
         if (config.name == 'mendra') await fxList[0].fx.setConfigData({ gpio_on: false })
         if (config.mqtt) god.mqtt.publish('cmnd/' + god.config.mqtt.clientId + '/POWER', 'OFF')
-		result = 'Stored Scenario loaded'
+        if (config.ScenarioResetSwitchesOffGpio) fxList[0].fx.setConfigData({ gpio_on: false, noFade: true })
+		result = 'Reset (Stored Scenario loaded)'
     } else {
         logger.error("Scenario not found: " + sId)
         status = 404
