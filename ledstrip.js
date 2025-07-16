@@ -70,7 +70,7 @@ const sites = [
 		displayName: 'World Domination - Regalbrett2',
 		cluster: {
 			type: 'client',
-			url: 'http://regalbrett.dhcp.cave.zefiro.de',
+			url: 'http://regalbrett.cave.zefiro.de',
 			offset: 96,
 			reverse: true,
 		},
