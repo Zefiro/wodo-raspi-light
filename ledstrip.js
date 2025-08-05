@@ -13,7 +13,10 @@ const lo = require('lodash')
 
 // this is our own fork, remember to set the symlink in node_modules (needs to be done after every 'npm install')
 // pushd node_modules && ln -s ../../node-rpi-ws281x-native/ . && popd
-const ws281x = require('node-rpi-ws281x-native')
+//const ws281x = require('node-rpi-ws281x-native')
+
+// ZCon 2023: now with regular Neopixel strip -> we can use the unchanged lib
+const ws281x = require('rpi-ws281x-native')
 
 const fxutil = require('./fx/fx_util')
 const cluster = require('./cluster')()
@@ -76,6 +79,14 @@ const sites = [
 	}, {
 		name: 'zcon',
 		displayName: 'Shiny things on ZCon',
+		ledCount: 300,
+		hardware: {
+			dma: 10,
+			gpio: 18,
+			invert: 0,
+			freq: 800000,
+			stripType: 0x00081000, // GRB
+		},
 	}, {
 		name: 'mendra',
 		displayName: 'Burg Drachenstein',
@@ -135,6 +146,7 @@ addNamedLogger('cluster-server', 'debug', 'ClusterD')
 addNamedLogger('cluster-client', 'debug', 'ClusterC')
 addNamedLogger('fx_freeze', 'debug', 'FX Freeze')
 addNamedLogger('fx_gpio', 'debug', 'FX GPIO')
+addNamedLogger('fx_rfid', 'debug', 'rfid')
 addNamedLogger('mqtt', 'debug')
 
 const logger = winston.loggers.get('main')
@@ -221,12 +233,12 @@ app.get('/cmd/:sId', async function(req, res) {
 	let rdns = await util.promisify(dns.reverse)(ip).catch(err => { logger.warn("Can't resolve DNS for " + ip + ": " + err); return ip + ".in.addr.arpa"; })
 	logger.info("Command %s requested by %s (%s)", sId, ip, rdns)
 	if (sId == "setTime") {
-		configManager.visualToast()
+		await configManager.visualToast()
 		let stdout = await runCommand('./setTime.sh')
 		res.send(stdout)
 	} else if (sId == "shutdown") {
 		if (req.query.pwd == 'pi') { // low-value password, reachable only from my Intranet
-			configManager.visualToast()
+			await configManager.visualToast()
 			let stdout = await runCommand('./shutdown.sh')
 			res.send(stdout)
 		} else {
@@ -253,20 +265,20 @@ async function setScenario(sId) {
 	let status, result
 	if (sId == "alarm") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('alarm')
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('alarm')
 		result = 'Alarm triggered'
 	} else if (sId == "alarm2") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('alarm')
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('alarm')
         fxList[1].fx._duration = 200
         fxList[1].fx._speed = 1
 		result = 'Alarm2 triggered'
 	} else if (sId == "calm") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('rainbow')
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('rainbow')
 		fxList[1].fx.loadConfigData({
 			"speed": 6000,
 			"cyclelen": 1000,
@@ -277,32 +289,35 @@ async function setScenario(sId) {
 		result = 'Calming down...'
 	} else if (sId == "disco") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
+        fxList[0] = await addEffect(config.defaultfx)
 		fullDisco()
 		result = 'Let\'s rock!'
 	} else if (sId == "green_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('fire')
-        fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('fire')
+        await fxList[1].fx.setConfigData({ color: 'green', type: 'fire' })
 		result = 'Green Fire triggered'
 	} else if (sId == "blue_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('fire')
-        fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('fire')
+        await fxList[1].fx.setConfigData({ color: 'blue', type: 'fire' })
 		result = 'Blue Fire triggered'
 	} else if (sId == "red_fire") {
 		fxList.length = 0
-        fxList[0] = addEffect(config.defaultfx)
-        fxList[1] = addEffect('fire')
-        fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
+        fxList[0] = await addEffect(config.defaultfx)
+        fxList[1] = await addEffect('fire')
+        await fxList[1].fx.setConfigData({ color: 'red', type: 'fire' })
 		result = 'Red Fire triggered'
 	} else if (sId == "load") {
 		await doCfgLoad()
 		result = 'Stored Scenario loaded'
     } else if (sId == "reset") { // Loads default scenario, but for Burg Drachenstein: switches LEDs off
         await doCfgLoad()
+        // both lines should work and do the same
+        if (config.name == 'mendra') await fxList[0].fx.setConfigData({ gpio_on: false })
+        if (config.mqtt) god.mqtt.publish('cmnd/' + god.config.mqtt.clientId + '/POWER', 'OFF')
         if (config.ScenarioResetSwitchesOffGpio) fxList[0].fx.setConfigData({ gpio_on: false, noFade: true })
 		result = 'Reset (Stored Scenario loaded)'
     } else {
@@ -383,14 +398,14 @@ console.log("socket received: getUserlist", data)
 	  configManager.sendUserlistToBrowser(socket, data)
   })
   
-  socket.on('browser-sendConfigUpdate', (data) => {
+  socket.on('browser-sendConfigUpdate', async (data) => {
     dataOut = []
     for(var idx = 0; idx < data.length; idx++) {
 		var fxIdx = data[idx].fx
 		var cfg = data[idx].cfg
 		var fx = fxList[fxIdx].fx
 		// TODO compare fx if it's still an active effect, silently ignore otherwise
-		fx.setConfigData(cfg)
+		await fx.setConfigData(cfg)
 		dataOut.push({fx: fxIdx, cfg: cfg})
     }
 	logger.debug("Got a config update from client.id=%s, sending out to all other clients:", socket.id)
@@ -399,19 +414,19 @@ console.log("socket received: getUserlist", data)
 	cluster.updateConfig()
   })
 
-  socket.on('browser-setFx', function(data) {
+  socket.on('browser-setFx', async function(data) {
     logger.info("browser-setFx("+data+")")
     if (config.name == "regalbrett" && fxNames[data] === "disco") {
-        fullDisco();
+        await fullDisco();
     } else {
 		fxList.length = 1 // safest way to keep the same object, but get rid of additional effects
 		if (config.name == "zcon") {
 			// keep fxList[0] unchanged, as it holds state
-			fxList[1] = addEffect(fxNames[data])
-			fxList[2] = addEffect('slave', 'Slave1')
+			fxList[1] = await addEffect(fxNames[data])
+//			fxList[2] = await addEffect('slave', 'Slave1')
 		} else {
-			fxList[0] = addEffect(config.defaultfx)
-			fxList[1] = addEffect(fxNames[data])
+			fxList[0] = await addEffect(config.defaultfx)
+			fxList[1] = await addEffect(fxNames[data])
 		}
     }
     sendFullConfig()
@@ -492,14 +507,14 @@ var configManager = {
 		}
 	},
 	sendUserlistToBrowser: function() {},
-	visualToast: function() {
+	visualToast: async function() {
 		if (this['active']) {
 			logger.warn("Visualtoast: already active, skipped")
 			return
 		}
 		logger.info("Visualtoast: triggered")
 		this.active = true
-        this.effect = addEffect('alarm')
+        this.effect = await addEffect('alarm')
 		configManager.fxList.unshift(this.effect)
 		setTimeout(() => {
 			if (configManager.fxList[0] === this.effect) {
@@ -515,7 +530,7 @@ var configManager = {
 	},
 }
 
-function addEffect(fxName, fxVarName) {
+async function addEffect(fxName, fxVarName) {
     if (!fxVarName) fxVarName = fxName
     logger.debug("adding effect " + fxName + " as " + fxVarName + " (canvas: " + config.canvasSize + "px)")
 	let layout = {
@@ -529,10 +544,10 @@ function addEffect(fxName, fxVarName) {
 		fxStart: 0,
 		// where on the canvas to start placing the effect
 		canvasStart: 0,
-		// whether placement of the effect on the canvas should be done reversed
+		// whether placement of the effect on the canvas should be done mirrored
 		reverse: false,
 	}
-	effect = require('./fx/' + fxName)(layout, configManager, god)
+	effect = await Promise.resolve(require('./fx/' + fxName)(layout, configManager, god))    
 	variables.set(fxVarName, effect.variables)
     return {
         name: fxName,
@@ -585,7 +600,7 @@ async function doCfgLoad(socket, msg) {
 	try {
         fxList.length = 0
         for(var i = 0; i < config.fxList.length; i++) {
-            var fx = addEffect(config.fxList[i].name)
+            var fx = await addEffect(config.fxList[i].name)
             var cfg = config.fxList[i].cfg
             fx.fx.loadConfigData(cfg)
             fxList.push(fx)
@@ -650,11 +665,11 @@ function startRendering() {
 
 
 // scene setting for disco effect on 'Regalbrett'
-function fullDisco() {
-    stripWall = addEffect('disco', 'disco1')
+async function fullDisco() {
+    stripWall = await addEffect('disco', 'disco1')
     stripWall.fx.layout.canvasStart = 0
     stripWall.fx.layout.fxLength = 57
-    stripWindow = addEffect('disco', 'disco2')
+    stripWindow = await addEffect('disco', 'disco2')
     stripWall.fx.layout.canvasStart = 57
     stripWall.fx.layout.fxLength = 41
     fxList[1] = stripWall
@@ -665,12 +680,15 @@ logger.info('Press <ctrl>+C to exit.')
 
 
 if (config.name == 'zcon') {
-    // only for ZCon
-    fxList[0] = addEffect('fx_rfid')
-    fxList[1] = addEffect('fire')
-    fxList[2] = addEffect('slave', 'Slave1')
-    fxList[3] = addEffect('slave', 'Slave2')
-	variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
+    (async () => {
+        // only for ZCon
+        fxList[0] = await addEffect('fx_rfid')
+        fxList[1] = await addEffect('fire')
+// currently no slave devices used on ZCon anymore
+//        fxList[2] = addEffect('slave', 'Slave1')
+//        fxList[3] = addEffect('slave', 'Slave2')
+//	      variables.get('Slave2').set('slaveData', '43 64 128 32 5 5 5 77 88 99 1000')
+    })()
 } else if (process.argv[3]) {
 	scenario = process.argv[3]
     process.nextTick(async function () {

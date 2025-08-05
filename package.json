@@ -29,6 +29,7 @@
     "pn532": "*",
     "q": "*",
     "rpi-gpio": "*",
+    "rpi-ws281x-native": "*",
     "serialport": "*",
     "socket.io": "*",
     "socket.io-client": "*",
