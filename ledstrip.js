@@ -62,7 +62,7 @@ const sites = [
 		ledCount: 96,
 		canvasSize: 136,
 		mqtt: {
-			"server": "mqtt://cave.zefiro.de",
+			"server": "mqtt://truhe.cave.zefiro.de",
 			"clientId": "regalbrett",
 		},
 	}, {
